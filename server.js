@@ -8,6 +8,7 @@ import { dbConnect } from './utiles/db.js';
 import authRoutes from './routes/authRoutes.js';
 import categoryRoutes from './routes/dashboardRoutes/categoryRoutes.js';
 import productRoutes from './routes/dashboardRoutes/productRoutes.js';
+import sellerRoutes from './routes/dashboardRoutes/sellerRoutes.js';
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -24,6 +25,7 @@ app.use(cookieParser());
 app.use('/api', authRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', productRoutes);
+app.use('/api', sellerRoutes);
 
 // Route d'accueil
 app.get('/', (req, res) => res.send('Hello, world!'));

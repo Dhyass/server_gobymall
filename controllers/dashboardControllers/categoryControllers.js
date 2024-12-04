@@ -1,4 +1,4 @@
-import cloudinary from "cloudinary";
+import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import categoryModel from "../../models/categoryModel.js";
 import { responseReturn } from "../../utiles/response.js";
@@ -21,7 +21,7 @@ export const add_category = async (req, res) => {
 
         // Validation du champ `name`
         if (typeof name !== 'string' || !name.trim()) {
-            return responseReturn(res, 400, { message: "Invalid name format" });
+             responseReturn(res, 400, { message: "Invalid name format" });
         }
 
         const trimmedName = name.trim();
@@ -29,8 +29,8 @@ export const add_category = async (req, res) => {
 
         // Téléchargement de l'image sur Cloudinary
         const uploadResult = await cloudinary.uploader.upload(image.path, {
-            folder: 'categories',
-            public_id: `${slug}-${Date.now()}`
+            folder:'categories',
+            public_id:`${slug}-${Date.now()}`
         });
         
 

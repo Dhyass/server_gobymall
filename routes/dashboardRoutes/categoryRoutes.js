@@ -11,10 +11,10 @@ import { authMiddleware } from '../../middlewares/authMiddleware.js';
 const router = express.Router();
 // Configuration de multer pour le stockage des fichiers
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
+   /* destination: (req, file, cb) => {
         console.log("path ",path.resolve('uploads/categories'));
         cb(null, path.resolve('uploads/categories')); // Utilise un chemin absolu
-    },
+    },*/
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + path.extname(file.originalname));

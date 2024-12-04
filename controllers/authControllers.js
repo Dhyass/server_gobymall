@@ -8,10 +8,30 @@ import { responseReturn } from '../utiles/response.js';
 import sendEmail from '../utiles/smtp_function.js';
 import { createToken } from '../utiles/tokenCreate.js';
 
+import { v2 as cloudinary } from 'cloudinary';
+import debug from "debug";
+import fs from "fs";
+import { console } from 'inspector';
+
+const log = debug("app:upload");
+
+
+
+// Configuration de Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true
+});
+
 
 export const admin_login = async (req, res) =>  {
     const { email, password } = req.body;
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+
+   // console.log('email admin ' + email);
+   //process.stdout.write("email admin : " + email + "\n");
 
     if (!emailRegex.test(req.body.email)) {
         responseReturn(res, 400, { message: "Email invalide" });
@@ -53,6 +73,8 @@ export const seller_login = async (req, res) => {
     const { email, password } = req.body;
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
 
+    //process.stdout.write("seller email : " + email + "\n");
+
     if (!emailRegex.test(email)) {
         return responseReturn(res, 400, { message: "Email invalide" });
     }
@@ -90,6 +112,7 @@ export const getUser = async (req, res) => {
 
     // Log to check if id and role are received correctly
     //console.log("User ID:", id, "Role:", role);
+   // process.stdout.write("User ID: " + id +"\n" + "Role:" + role + "\n");
 
     if (!id || !role) {
         return responseReturn(res, 400, { message: "Invalid request: missing user ID or role" });
@@ -115,8 +138,6 @@ export const getUser = async (req, res) => {
         responseReturn(res, 500, { message: "Internal server error", error: error.message });
     }
 };
-
-
 
 
 
@@ -210,13 +231,122 @@ export const seller_register= async(req, res) =>{
         responseReturn(res, 201, {status: true, message: "Comptecréé avec succès" });
         //res.status(201).json({ status: true, message: "Utilisateur créé avec succès" });
     } catch (error) {
-        responseReturn(res, 500, {status: false, message: "Erreur Interne du serveur" });
+        responseReturn(res, 500, {message: "Erreur Interne du serveur" });
         
     }
 }
+/*
+export const upload_profile_image = async (req, res) => {
+    //console.log("Début de la fonction upload_profile_image");
+    process.stdout.write("Début de la fonction upload_profile_image" + "\n");
+    res.status(200).send({ message: "Test réussi." });
+  };
+*/
+export const logout = async (req, res) => {
+   /// console.log("Début de la fonction logout");
+    process.stdout.write("Début de la fonction logout : " + "\n");
 
-export const logout = (req, res) => {
-    res.clearCookie("token").status(200).json({ message: "Logout successfully" });
+    try {
+        res.cookie('accessToken',null,{
+            expires : new Date(Date.now()),
+            httpOnly : true
+        })
+        responseReturn(res,200,{message : 'logout success'})
+    } catch (error) {
+        responseReturn(res, 500, { error: error.message })
+    }
 }
 
+/*
+export const logout = async (req, res) => {
+    //console.log("Déconnexion en cours...");
+    process.stdout.write("Début de la fonction logout : " + "\n");
+    res.clearCookie("token").status(200).json({ message: "Logout successfully" });
+  };
+*/
+
+export const upload_profile_image = async (req, res) => {
+  try {
+    const { id } = req; // Assurez-vous que l'ID de l'utilisateur est disponible (par exemple via authMiddleware)
+    process.stdout.write(" id profile : " + id + "\n");
+    // Vérifiez si un fichier est attaché à la requête
+    if (!req.file) {
+      return responseReturn(res, 400, { error: "Aucun fichier fourni" });
+    }
+
+    const imagePath = req.file.path; // Multer enregistre le fichier temporairement ici
+    const imageName = req.file.originalname;
+
+    // Téléversement de l'image sur Cloudinary
+    const result = await cloudinary.uploader.upload(imagePath, {
+      folder: "GOBYMALL/profile",
+      public_id: `profile_${id}_${Date.now()}`, // Génère un identifiant unique pour le fichier
+    });
+
+    if (!result || !result.url) {
+      return responseReturn(res, 500, { error: "Échec du téléversement de l'image" });
+    }
+
+    // Mettre à jour l'image de profil de l'utilisateur dans la base de données
+    const updatedUser = await sellerModel.findByIdAndUpdate(
+      id,
+      { image: result.url },
+      { new: true } // Retourne les nouvelles informations après la mise à jour
+    );
+
+    if (!updatedUser) {
+      return responseReturn(res, 404, { error: "Utilisateur introuvable" });
+    }
+
+    // Suppression du fichier temporaire après l'upload
+    fs.unlink(imagePath, (err) => {
+      if (err) {
+        console.error("Erreur lors de la suppression du fichier temporaire :", err);
+      }
+    });
+
+    const userInfo = await sellerModel.findById(id);
+
+    // Retourner les informations mises à jour de l'utilisateur
+    return responseReturn(res, 200, { message: "Image téléversée avec succès", userInfo: userInfo });
+
+  } catch (error) {
+    //console.error("Erreur lors du téléversement de l'image :", error.message);
+    responseReturn(res, 500, { error: "Erreur serveur" });
+  }
+};
+
+export const profile_info_add = async (req, res) => {
+   // process.stdout.write("profile mise à jour :  \n" + req.body);
+  const { shopName, country,city,address,telephone } = req.body;
+ 
+ try {
+    const { id } = req; // Assurez-vous que l'ID de l'utilisateur est disponible (par exemple via authMiddleware)
+    //process.stdout.write(" id profile : " + id + "\n");
+    // Mise à jour des informations de profil de l'utilisateur dans la base de données
+    const updatedUser = await sellerModel.findByIdAndUpdate(id, {
+        shopInfo : {
+            shopName ,  
+            country,
+            city,
+            address,
+            telephone
+        }
+    })
+    if (!updatedUser) {
+        responseReturn(res, 404, { error: "Utilisateur introuvable" });
+    }
+    const userInfo = await sellerModel.findById(id);
+    // Retourner les informations mises à jour de l'utilisateur
+   responseReturn(res, 200, { message: "Informations de profil mises à jour avec succès" });
+
+    
+  } catch (error) {
+    //console.error("Erreur lors de la mise à jour des informations de profil :", error.message );
+    responseReturn(res, 500, { error: "Erreur serveur" });
+    
+  }
+
+
+}
 
