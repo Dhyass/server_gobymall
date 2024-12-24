@@ -202,7 +202,7 @@ export const seller_register= async(req, res) =>{
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
 
     if (!emailRegex.test(req.body.email)) {
-         responseReturn(res, 404, { message: "Account not found" });
+        return responseReturn(res, 404, { message: "Account not found" });
         //return res.status(400).json({ status: false, message: "Email invalide" });
     }
 

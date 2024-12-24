@@ -66,21 +66,21 @@ export const seller_status_update = async (req, res) => {
     try {
         // Vérification de l'ID
         if (!Types.ObjectId.isValid(sellerId)) {
-            process.stdout.write("ID invalide\n");
+            //process.stdout.write("ID invalide\n");
             return responseReturn(res, 400, { message: "ID invalide" });
         }
         // Vérification de la valeur de status
         if (!["active", "deactive"].includes(status)) {
-            process.stdout.write("Status invalide\n");
+            //process.stdout.write("Status invalide\n");
             return responseReturn(res, 400, { message: "Status invalide" });
         }
         // Mise à jour du status
         const seller = await sellerModel.findByIdAndUpdate(sellerId, { status }, { new: true });
         if (!seller) {
-            process.stdout.write("Seller not found\n");
+            //process.stdout.write("Seller not found\n");
             return responseReturn(res, 404, { message: "Seller not found" });
         }
-        process.stdout.write("Seller updated: " + JSON.stringify(seller) + "\n");
+       // process.stdout.write("Seller updated: " + JSON.stringify(seller) + "\n");
         return responseReturn(res, 200, { message : "Seller status updated" });
         
     } catch (error) {

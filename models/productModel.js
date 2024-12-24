@@ -16,7 +16,8 @@ const productSchema = new Schema({
             url: { type: String, required: true },
             public_id: { type: String, required: true }
         }
-    ]
+    ],
+    rating: { type: Number, default: 0 },
 }, { timestamps: true }); // Ajout des timestamps
 
 productSchema.index(

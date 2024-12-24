@@ -433,7 +433,7 @@ export const updateProduct = async (req, res) => {
 
 export const delete_product = async (req, res) => {
     const { id } = req.params; // ID du produit à supprimer
-    console.log("prdouit à supprimer", id);
+    //console.log("prdouit à supprimer", id);
     //console.log("produit : " , product);
     try {
         // Récupérer le produit par ID

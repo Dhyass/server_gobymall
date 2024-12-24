@@ -9,12 +9,31 @@ import authRoutes from './routes/authRoutes.js';
 import categoryRoutes from './routes/dashboardRoutes/categoryRoutes.js';
 import productRoutes from './routes/dashboardRoutes/productRoutes.js';
 import sellerRoutes from './routes/dashboardRoutes/sellerRoutes.js';
+import authHomeRoutes from './routes/homeRoutes/authHomeRoutes.js';
+import cardRoutes from './routes/homeRoutes/cardRoutes.js';
+import homeRoutes from './routes/homeRoutes/homeRoutes.js';
+import orderRoutes from './routes/ordersRouters/orderRoutes.js';
 
 const app = express();
 const port = process.env.PORT || 8080;
 
+const allowedOrigins = [process.env.CLIENT_URL, process.env.CLIENT_URL2];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true); // Allow the request
+        } else {
+            callback(new Error('Not allowed by CORS')); // Reject the request
+        }
+    },
+    credentials: true, // Allow credentials
+}));
+
+
 // Configuration CORS
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+//app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+//app.use(cors({ origin: process.env.CLIENT_URL2, credentials: true }));
 
 // Middleware pour parser JSON et les cookies
 app.use(express.json()); // Remplace body-parser pour les JSON
@@ -26,6 +45,10 @@ app.use('/api', authRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', productRoutes);
 app.use('/api', sellerRoutes);
+app.use('/api/home', homeRoutes);
+app.use('/api', authHomeRoutes);
+app.use('/api', cardRoutes);
+app.use('/api', orderRoutes);
 
 // Route d'accueil
 app.get('/', (req, res) => res.send('Hello, world!'));
