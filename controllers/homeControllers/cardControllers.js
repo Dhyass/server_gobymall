@@ -1,21 +1,35 @@
 
 import mongoose from "mongoose";
 import cardModel from "../../models/cardModel.js";
+import WishlistModel from "../../models/wishlistModel.js";
 import { responseReturn } from "../../utiles/response.js";
 
 
 export const add_to_card = async (req, res)  => {
     const {customerId, productId, quantity} = req.body;
     try {
+         // Vérifiez si l'ID est valide
+         if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
+            return responseReturn(res, 400, { message: "ID invalide" });
+         }
+          // Conversion de l'ID en ObjectId
+          const customerObjectId = mongoose.Types.ObjectId.createFromHexString(customerId);
+          
+         if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+            return responseReturn(res, 400, { message: "ID invalide" });
+         }
+
+         const productObjectId = mongoose.Types.ObjectId.createFromHexString(productId);
+
         const product = await cardModel.findOne({
             $and : [
                { productId: {
-                        $eq : productId
+                        $eq : productObjectId
                     }
                 },
                 {
                     customerId: {
-                        $eq : customerId
+                        $eq : customerObjectId
                     }
                 }
 
@@ -391,8 +405,8 @@ export const get_cards = async (req, res) => {
     try {
         // Vérifiez si l'ID est valide
         if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-            //return res.status(400).json({ message: "ID utilisateur invalide." });
-           return responseReturn(res, 400, { message: "ID utilisateur invalide from backend" });
+          
+           return responseReturn(res, 400, { message: "ID invalide" });
         }
 
         // Conversion de l'ID en ObjectId
@@ -417,7 +431,7 @@ export const get_cards = async (req, res) => {
 
         if (card_products.length === 0) {
             //return res.status(404).json({ message: "Aucun produit trouvé pour cet utilisateur." });
-           return responseReturn(res , 404, { message: "Aucun produit trouvé pour cet utilisateur." });
+           return responseReturn(res , 404, { message: "Votre Panier est vide." });
         }
 
         let buy_products_total = 0; // Total des produits achetés (en stock uniquement)
@@ -565,8 +579,8 @@ export const update_product_quantity = async (req, res) => {
 export const update_product_quantity = async (req, res) => {
     const id = req.params.cardId; // ID du produit à modifier
     const state = req.body.state; // Nouveau stock
-    console.log('id :', id);
-    console.log('state etat :', state);
+    //console.log('id :', id);
+    //console.log('state etat :', state);
 
     try {
         // Vérifiez si l'ID est valide
@@ -610,12 +624,12 @@ export const get_card = async (req, res) => {
     const { id } = req.params;
     const commission = 0;
 
-    console.log('Request params:', req.params);
+    //console.log('Request params:', req.params);
 
     // Vérification préliminaire de l'ID
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         console.log("ID utilisateur invalide :", id);
-        return responseReturn(res, 400, { message: "ID utilisateur invalide from backend" });
+        return responseReturn(res, 400, { message: "ID invalide" });
     }
 
     try {
@@ -634,7 +648,7 @@ export const get_card = async (req, res) => {
         ]);
 
         if (card_products.length === 0) {
-            return responseReturn(res, 404, { message: "Aucun produit trouvé pour cet utilisateur." });
+            return responseReturn(res, 404, { message: "Panier vide." });
         }
 
         // Calculs et traitements des produits...
@@ -698,3 +712,90 @@ function processCardProducts(card_products, commission) {
         shipping_fee: 85 * buy_products_total,
     };
 }
+
+export const add_to_wishlist = async (req, res) => {
+    //const {customerId, productId} = req.body;
+    const slug = req.body.info.slug;
+    //console.log(' slug', slug);
+    //console.log(' req body ', req.body.info);
+
+   try {
+    const wishlist = await WishlistModel.findOne({slug});
+    if (wishlist) {
+      return  responseReturn(res , 404, {message: "Product already in wishlist"});
+    }else {
+        const wishlist = new WishlistModel({
+            customerId : req.body.info.customerId,
+            productId : req.body.info.productId,
+            name : req.body.info.name,
+            price : req.body.info.price,
+            image: req.body.info.image,
+            discount : req.body.info.discount,
+            rating : req.body.info.rating,
+            slug : req.body.info.slug,
+        });
+        await wishlist.save();
+      return  responseReturn(res, 200, {message: "Product added to wishlist", wishlist});
+    }
+    
+} catch (error) {
+    console.log(error);
+    responseReturn(res, 500, {error: error.message});
+}
+
+};
+
+
+export const get_wishlist_products = async (req, res) => {
+    //console.log('customerId ', req.params.customerId);
+    const customerId = req.params.customerId;
+    try {
+        if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
+           // console.log("ID utilisateur invalide :", id);
+            return responseReturn(res, 400, { message: "ID invalide" });
+        }
+        const customerobjectId = mongoose.Types.ObjectId.createFromHexString(customerId);
+        const wishlists = await WishlistModel.find({customerId: customerobjectId}).sort({ createdAt: -1 });
+        if (!wishlists) {
+            return responseReturn(res, 404, { message: "No wishlist found" });
+        }
+       // console.log('wishlist', wishlists);
+        const wishList_count = await WishlistModel.countDocuments({customerId: customerobjectId});
+        return responseReturn(res, 200, {message : 'wishlist found',  wishlists, wishList_count}); 
+    } catch (error) {
+        console.log(error);
+        responseReturn(res, 500, { error: 'error fetching wishlist' });
+        
+    }
+}
+/*
+export const delete_wishlist_product = async (req, res) => {
+    console.log(req.params);
+}*/
+
+export const delete_wishlist_product = async (req, res) => {
+    const  {wishlistId}  = req.params; // ID du produit à supprimer
+
+    //console.log('wishlistId :', wishlistId);
+
+    try {
+        // Vérifiez si l'ID est valide
+        if (!wishlistId || !mongoose.Types.ObjectId.isValid(wishlistId)) {
+            //console.log(' ID non valide');
+            return responseReturn(res, 400, { message: "ID produit invalide." });
+        }
+
+        // Suppression du produit directement
+        const deletedwishlistId = await WishlistModel.findByIdAndDelete(wishlistId);
+        //const card = await cardModel.findById(id);
+       // console.log(' card :', card);
+        if (!deletedwishlistId) {
+            return responseReturn(res, 404, { message: "Produit introuvable." });
+        }
+
+        return responseReturn(res, 200, { message: "Produit supprimé avec succès." });
+    } catch (error) {
+        console.error("Erreur lors de la suppression du produit :", error.message);
+        return responseReturn(res, 500, { message: "Erreur lors de la suppression du produit." });
+    }
+};

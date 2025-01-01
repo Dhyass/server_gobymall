@@ -1,5 +1,8 @@
+import moment from "moment";
+import mongoose from "mongoose";
 import categoryModel from "../../models/categoryModel.js";
 import productModel from "../../models/productModel.js";
+import reviewModel from "../../models/reviewsModel.js";
 import { responseReturn } from "../../utiles/response.js";
 
 // Format products into rows of 3
@@ -88,75 +91,7 @@ export const get_price_range_latest_products = async (req, res) => {
     }
 };
 
-/*
-export const get_query_sort_products = async (req, res) => {
-    const parPage  = 12;
-    req.query.parPage =parPage;
-    console.log( "query data",req.query)
-    try {
-        const products = await productModel.find({}).sort({ createdAt : -1 });
-        const totalProducts = new QueryProducts(products, req.query).categoryQuery()
-        .ratingQuery().priceQuery().sortByPrice().countProducts();
 
-        const result = new QueryProducts(products, req.query).categoryQuery()
-        .ratingQuery().priceQuery().sortByPrice().skip().limit().getProducts();
-        console.log('resultat', result);
-
-        responseReturn(res, 200, {products : result, totalProducts})
-    } catch (error) {
-        console.error("Error fetching products:", error);
-    }
-}
-*/
-
-/*
-export const get_query_sort_products = async (req, res) => {
-    const parPage = 12;
-    req.query.parPage = parPage;
-    console.log('query req ', req.query)
-
-    try {
-        // Préparez les filtres avec validation
-        const filters = {
-            ...(req.query.categorie && { category: req.query.categorie }),
-            ...(req.query.rating && !isNaN(Number(req.query.rating)) && {
-                rating: { $gte: Number(req.query.rating.trim()) },
-            }),
-            ...(req.query.lowPrice && !isNaN(Number(req.query.lowPrice)) &&
-            req.query.highPrice && !isNaN(Number(req.query.highPrice)) && {
-                price: { $gte: Number(req.query.lowPrice), $lte: Number(req.query.highPrice) },
-            }),
-        };
-
-        // Appliquez les filtres
-        let products = await productModel.find(filters);
-
-        // Appliquez le tri basé sur sortPrice
-        if (req.query.sortPrice) {
-            if (req.query.sortPrice === 'low-to-high') {
-                products = products.sort((a, b) => a.price - b.price);
-            } else if (req.query.sortPrice === 'high-to-low') {
-                products = products.sort((a, b) => b.price - a.price);
-            }
-        } else {
-            // Par défaut, triez par date de création décroissante
-            products = products.sort((a, b) => b.createdAt - a.createdAt);
-        }
-
-        // Appliquez la pagination
-        const totalProducts = products.length;
-        const pageNumber = Number(req.query.pageNumber) || 1;
-        const startIndex = (pageNumber - 1) * parPage;
-        const paginatedProducts = products.slice(startIndex, startIndex + parPage);
-
-        // Retournez les produits paginés et le total des produits
-        responseReturn(res, 200, { products: paginatedProducts, totalProducts, parPage });
-    } catch (error) {
-        console.error("Error fetching products:", error);
-        responseReturn(res, 500, { message: "Erreur lors de la récupération des produits" });
-    }
-};
-*/
 export const get_query_sort_products = async (req, res) => {
     const parPage = 12;
     req.query.parPage = parPage;
@@ -211,4 +146,336 @@ export const get_query_sort_products = async (req, res) => {
         responseReturn(res, 500, { message: "Erreur lors de la récupération des produits" });
     }
 };
+
+export const get_product = async (req, res) => {
+    const { productId } = req.params;
+   // console.log("productId contenu brut:", productId);
+    
+    try {
+        if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+            // console.log("ID utilisateur invalide :", id);
+            return responseReturn(res, 400, { message: "ID invalide" });
+        }
+    const productIdObjectId = mongoose.Types.ObjectId.createFromHexString(productId);
+    const product = await productModel.findById(productIdObjectId);
+    if (!product) {
+        return responseReturn(res, 404, { message: "Produit non trouvé" });
+    }
+
+        const relatedProducts = await productModel.find({
+            $and: [{
+                    _id: {
+                        $ne: product.id
+                    }
+                },
+                {
+                    category: {
+                        $eq: product.category
+                    }
+                }
+            ]
+        }).limit(20)
+
+      //  console.log('related Products', relatedProducts)
+
+        const moreProducts = await productModel.find({
+
+            $and: [{
+                    _id: {
+                        $ne: product.id
+                    }
+                },
+                {
+                    sellerId: {
+                        $eq: product.sellerId
+                    }
+                }
+            ]
+        }).limit(3)
+
+       // console.log( 'more products', moreProducts)
+
+    //console.log("product:", product);
+    responseReturn(res, 200,{ message: "Produit non trouvé" , product, moreProducts, relatedProducts});
+    
+} catch (error) {
+    console.error("Error fetching product:", error);
+    responseReturn(res, 500, { message: "Erreur lors de la récupération du produit " });
+    
+}
+
+}
+
+export const customer_review = async (req, res) => {
+    //console.log('query infos ', req.body)
+    const {name, review, rating, productId} = req.body;
+    try {
+     const newReview = new reviewModel({
+            productId,
+            name,
+            rating : parseInt(rating),
+            review,
+            date : moment(Date.now()).format('LL')
+        })
+        await newReview.save();
+
+        let totalRating = 0;
+
+          if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+                        return responseReturn(res, 400, { message: "ID invalide" });
+                }
+                 // Conversion de l'ID en ObjectId
+        const productObjectId = mongoose.Types.ObjectId.createFromHexString(productId);
+        const reviews = await reviewModel.find({productId});
+
+        for (let i = 0; i < reviews.length; i++) {
+            //console.log(reviews[i].rating)
+            totalRating += reviews[i].rating
+        }
+
+        let averageRating = 0;
+        if (reviews.length > 0) {
+            averageRating = (totalRating / reviews.length).toFixed(1);
+        }
+
+        await productModel.findByIdAndUpdate(productObjectId, {
+            rating : parseFloat(averageRating),
+        })
+
+        return responseReturn(res, 200, { message: "Avis ajouté avec succès"});
+        
+    } catch (error) {
+        console.error("Error adding review:", error);
+        responseReturn(res, 500, { message: "Erreur lors de l'ajout d 'un avis" });
+    }
+}
+/*
+export const getProductReviews = async (req, res) => {
+    const productId = req.params.productId;
+    //const slug = req.params.slug;
+    const pageNumber = req.query.pageNumber ; // Par défaut, la première page
+   // console.log('page slug ', slug)
+    //const limit = 5;
+    const parPage = 5;
+    const skip = (parseInt(pageNumber) - 1) * parPage;
+
+    try {
+        // Valider l'ID produit
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return responseReturn(res, 400, { message: "ID produit invalide" });
+        }
+
+        // Récupération des avis et calcul des statistiques
+        const getRating = await reviewModel.aggregate([
+            {
+                $match: {
+                    productId:  mongoose.Types.ObjectId.createFromHexString(productId),
+                }
+            },
+            {
+                $group: {
+                    _id: "$rating", // Regrouper par valeur de "rating"
+                    count: { $sum: 1 } // Compter le nombre d'avis pour chaque note
+                }
+            },
+            
+        ]);
+
+        const rating_review = [
+            { rating: 5, sum: 0 },
+            { rating: 4, sum: 0 },
+            { rating: 3, sum: 0 },
+            { rating: 2, sum: 0 },
+            { rating: 1, sum: 0 },
+        ]
+
+        for (let i = 0; i < rating_review.length; i++) {
+             for (let j = 0; j <getRating.length; j++) {
+                if (rating_review[i].rating===getRating[j]._id) {
+                    rating_review[i].sum = getRating[j].count;
+                    break
+                }
+             }
+        }
+
+       //console.log('console getRating', getRating);
+
+       //console.log('console Rating reviiew', rating_review);
+
+        const getAll_Product_Reviews = await reviewModel.find({ productId: mongoose.Types.ObjectId.createFromHexString(productId) } )
+        .sort({ createdAt: -1 });
+        let totalReviews = 0;
+        let reviews =[];
+        if (getAll_Product_Reviews.length > 0) {
+            totalReviews = getAll_Product_Reviews.length;
+            reviews = getAll_Product_Reviews.slice(skip, skip + parPage);
+            return responseReturn(res, 200, { message: "Liste des avis", rating_review, totalReviews, reviews, parPage });
+        }else{
+            return responseReturn(res, 404, { message: "Aucun avis trouvé" });
+        }
+        
+       // console.log('pageNumber ', pageNumber);
+       // console.log(' reviews', reviews);
+
+        // Retourner les résultats
+       
+    } catch (error) {
+        console.error("Erreur lors de la récupération des avis :", error);
+        return responseReturn(res, 500, { message: "Erreur serveur", error });
+    }
+};
+*/
+/*
+export const getProductReviews = async (req, res) => {
+    const {productId} = req.params;
+    let {pageNumber} = req.query; // Par défaut, la première page
+    const parPage = 5;
+    const skip = (parseInt(pageNumber) - 1) * parPage;
+
+    try {
+        // Valider l'ID produit
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return responseReturn(res, 400, { message: "ID produit invalide" });
+        }
+
+        // Récupération des statistiques de notation
+        const getRating = await reviewModel.aggregate([
+            {
+                $match: { productId: mongoose.Types.ObjectId.createFromHexString(productId), }
+            },
+            {
+                $group: {
+                    _id: "$rating",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Initialiser le tableau des évaluations
+        const rating_review = [
+            { rating: 5, sum: 0 },
+            { rating: 4, sum: 0 },
+            { rating: 3, sum: 0 },
+            { rating: 2, sum: 0 },
+            { rating: 1, sum: 0 }
+        ];
+
+        // Mettre à jour les évaluations avec les résultats de l'agrégation
+        getRating.forEach(({ _id, count }) => {
+            const index = rating_review.findIndex(r => r.rating === _id);
+            if (index !== -1) {
+                rating_review[index].sum = count;
+            }
+        });
+
+        // Récupération des avis avec pagination
+        const totalReviews = await reviewModel.countDocuments({ productId: mongoose.Types.ObjectId.createFromHexString(productId)});
+        const reviews = await reviewModel
+            .find({ productId: mongoose.Types.ObjectId.createFromHexString(productId) })
+            .skip(skip)
+            .limit(parPage)
+            .sort({ createdAt: -1 });
+
+        // Vérifier si des avis existent
+        if (totalReviews === 0) {
+            return responseReturn(res, 404, { message: "Aucun avis trouvé", rating_review, totalReviews, reviews: ["Pas d'avis"], parPage });
+        }else {
+            // Retourner les avis avec les statistiques
+            return responseReturn(res, 200, { 
+                message: "Liste des avis récupérée avec succès", 
+                rating_review, 
+                totalReviews, 
+                reviews, 
+                parPage 
+            });
+        }
+
+    } catch (error) {
+        console.error("Erreur lors de la récupération des avis :", error);
+        return responseReturn(res, 500, { message: "Erreur serveur", error });
+    }
+};
+
+*/
+
+export const getProductReviews = async (req, res) => {
+    const { productId } = req.params;
+    const { pageNumber = 1 } = req.query; // Page par défaut : 1
+    const parPage = 5;
+    const skip = (parseInt(pageNumber) - 1) * parPage;
+
+    try {
+        // Valider l'ID produit
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return responseReturn(res, 400, { message: "ID produit invalide" });
+        }
+
+        // Vérifier si des avis existent pour ce produit
+        const totalReviews = await reviewModel.countDocuments({
+            productId: mongoose.Types.ObjectId.createFromHexString(productId),
+        });
+
+        if (totalReviews === 0) {
+            return responseReturn(res, 404, {
+                message: "Aucun avis trouvé",
+                rating_review: initializeRatingReview(), // Générer un tableau vide
+                totalReviews: 0,
+                reviews: [],
+            });
+        }
+
+        // Récupération des statistiques de notation
+        const getRating = await reviewModel.aggregate([
+            {
+                $match: {
+                    productId: mongoose.Types.ObjectId.createFromHexString(productId),
+                },
+            },
+            {
+                $group: {
+                    _id: "$rating",
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+
+        // Initialiser et mettre à jour les évaluations
+        const rating_review = initializeRatingReview();
+        getRating.forEach(({ _id, count }) => {
+            const index = rating_review.findIndex((r) => r.rating === _id);
+            if (index !== -1) {
+                rating_review[index].sum = count;
+            }
+        });
+
+        // Récupérer les avis avec pagination
+        const reviews = await reviewModel
+            .find({
+                productId: mongoose.Types.ObjectId.createFromHexString(productId),
+            })
+            .skip(skip)
+            .limit(parPage)
+            .sort({ createdAt: -1 });
+
+        // Retourner les avis avec les statistiques
+        return responseReturn(res, 200, {
+            message: "Liste des avis récupérée avec succès",
+            rating_review,
+            totalReviews,
+            reviews,
+        });
+    } catch (error) {
+        console.error("Erreur lors de la récupération des avis :", error);
+        return responseReturn(res, 500, { message: "Erreur serveur", error });
+    }
+};
+
+// Fonction utilitaire pour initialiser les statistiques d'évaluation
+const initializeRatingReview = () => [
+    { rating: 5, sum: 0 },
+    { rating: 4, sum: 0 },
+    { rating: 3, sum: 0 },
+    { rating: 2, sum: 0 },
+    { rating: 1, sum: 0 },
+];
 

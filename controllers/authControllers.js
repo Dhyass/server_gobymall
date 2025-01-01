@@ -58,7 +58,7 @@ export const admin_login = async (req, res) =>  {
                 id: admin.id,
                 role: admin.role 
             });
-            res.cookie('AccessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+            res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
             responseReturn(res, 200, {message: "Connexion réussie" , token});
         } else {
             responseReturn(res, 404, { message: "Mot de passe incorrect" });
@@ -96,7 +96,7 @@ export const seller_login = async (req, res) => {
                 id: seller.id,
                 role: seller.role 
             });
-            res.cookie('AccessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+            res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
             return responseReturn(res, 200, { message: "Connexion réussie", token });
         } else {
             return responseReturn(res, 404, { message: "Mot de passe incorrect" });
@@ -184,7 +184,7 @@ export const seller_register= async(req, res) =>{
             id: newSeller.id,
             role: newSeller.role 
         });
-        res.cookie('AccessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+        res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
         
         //console.log(newSeller);
         responseReturn(res, 201, {message: " Votre  compte vendeur est bien créé" , token});
@@ -235,16 +235,10 @@ export const seller_register= async(req, res) =>{
         
     }
 }
-/*
-export const upload_profile_image = async (req, res) => {
-    //console.log("Début de la fonction upload_profile_image");
-    process.stdout.write("Début de la fonction upload_profile_image" + "\n");
-    res.status(200).send({ message: "Test réussi." });
-  };
-*/
+
 export const logout = async (req, res) => {
    /// console.log("Début de la fonction logout");
-    process.stdout.write("Début de la fonction logout : " + "\n");
+   // process.stdout.write("Début de la fonction logout : " + "\n");
 
     try {
         res.cookie('accessToken',null,{

@@ -71,7 +71,10 @@ export const add_product = async (req, res) => {
             images
         });
 
-        return responseReturn(res, 200, { message: "Produit ajouté avec succès." });
+        return responseReturn(res, 200, { 
+            message: "Produit ajouté avec succès.", 
+            product
+        });
     } catch (error) {
         console.error(error);
         return responseReturn(res, 500, { message: "Erreur lors de l'ajout du produit." });
@@ -166,12 +169,23 @@ export const get_products = async (req, res) => {
             .limit(itemsPerPage)
             .sort({ createdAt: -1 });
 
-        // Compter les produits
-        const totalProduct = await productModel.countDocuments(query);
-
         // Logs pour debugging
         //console.log("Type de produits :", Array.isArray(products));
         //console.log("Valeur de produit :", products);
+
+
+        if (!products || products.length === 0) {
+            return responseReturn(res, 404, { message: "Aucun produit trouvé." });
+        }
+
+        products.forEach(product => {
+            if (!product.images || product.images.length === 0) {
+                console.error(`Produit sans images détecté : ${product._id}`);
+            }
+        });
+
+        // Compter les produits
+        const totalProduct = await productModel.countDocuments(query);
 
         // Retourner les résultats
         responseReturn(res, 200, { products, totalProduct });
@@ -463,3 +477,4 @@ export const delete_product = async (req, res) => {
         responseReturn(res, 500, { message: 'Erreur lors de la suppression du produit.' });
     }
 };
+

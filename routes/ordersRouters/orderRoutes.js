@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { place_order } from '../../controllers/ordersControllers/orderControllers.js';
+import { get_dashboard_data, get_order_by_id, get_orders, place_order } from '../../controllers/ordersControllers/orderControllers.js';
 
 
 
@@ -31,6 +31,9 @@ const storage = multer.diskStorage({
  const upload = multer({ storage, fileFilter });
 
 router.post('/order/place_order', place_order);
+router.get('/order/get_order/:customerId/:status', get_orders);
+router.get('/customer/get_dashboard_data/:customerId',get_dashboard_data)
+router.get('/order/get_order_by_id/:orderId', get_order_by_id);
 
 
 

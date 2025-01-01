@@ -47,7 +47,7 @@ router.get('/get_user', authMiddleware, getUser);
 router.post('/admin_register', admin_register);
 router.post('/seller_register', seller_register);
 router.post('/seller_login', seller_login);
-router.post("/logout", logout);
+router.get("/logout", logout);
 //router.post("/profile/uploadImage", authMiddleware, upload.single("image"),upload_profile_image);
 router.post("/profile/uploadImage",  authMiddleware, upload.single("image"), upload_profile_image);
 router.post("/profile/seller_infos",  authMiddleware, profile_info_add);
