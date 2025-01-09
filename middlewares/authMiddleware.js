@@ -7,7 +7,7 @@ export const authMiddleware = async (req, res, next) => {
 
     if (!token || token === 'null') {
         // Fallback to cookie if token from Authorization header is missing or null
-        token = req.cookies.AccessToken;
+        token = req.cookies.accessToken;
     }
 
    //console.log("Authorization Header:", req.headers.authorization);

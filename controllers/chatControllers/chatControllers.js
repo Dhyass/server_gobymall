@@ -1,4 +1,5 @@
 
+import adminSellerMessageModel from "../../models/chats/adminSellerMessageModel.js";
 import sellerCustomerMessageModel from "../../models/chats/sellerCustomerMessageModel.js";
 import sellerCustomerModel from "../../models/chats/sellerCustomerModel.js";
 import customerModel from "../../models/customerModel.js";
@@ -129,118 +130,7 @@ export const add_customer_friend = async (req, res) => {
 
 }
 
-/*
-import sellerCustomerMessageModel from "../../models/chats/sellerCustomerMessageModel.js";
-import sellerCustomerModel from "../../models/chats/sellerCustomerModel.js";
-import customerModel from "../../models/customerModel.js";
-import sellerModel from "../../models/sellerModel.js";
-import { responseReturn } from "../../utiles/response.js";
-
-export const add_customer_friend = async (req, res) => {
-    const { customerId, sellerId } = req.body;
-
-    // Validation des entrées
-    if (!customerId) {
-        return res.status(400).send({ message: "Customer ID is required" });
-    }
-
-    try {
-        if (sellerId) {
-            // Récupérer les informations du vendeur et du client
-            const [seller, customer] = await Promise.all([
-                sellerModel.findById(sellerId),
-                customerModel.findById(customerId),
-            ]);
-
-            if (!seller) {
-                return res.status(404).send({ message: "Seller not found" });
-            }
-            if (!customer) {
-                return res.status(404).send({ message: "Customer not found" });
-            }
-
-            // Vérifier et mettre à jour les amis du client
-            const checkSeller = await sellerCustomerModel.findOne({
-                myId: customerId,
-                myFriends: { $elemMatch: { fdId: sellerId } },
-            });
-
-            if (!checkSeller) {
-                await sellerCustomerModel.updateOne(
-                    { myId: customerId },
-                    {
-                        $push: {
-                            myFriends: {
-                                fdId: sellerId,
-                                fdName: seller.shopInfo.shopName,
-                                fdImage: seller.image,
-                            },
-                        },
-                    },
-                    { upsert: true }
-                );
-            }
-
-            // Vérifier et mettre à jour les amis du vendeur
-            const checkCustomer = await sellerCustomerModel.findOne({
-                myId: sellerId,
-                myFriends: { $elemMatch: { fdId: customerId } },
-            });
-
-            if (!checkCustomer) {
-                await sellerCustomerModel.updateOne(
-                    { myId: sellerId },
-                    {
-                        $push: {
-                            myFriends: {
-                                fdId: customerId,
-                                fdName: customer.name,
-                                fdImage: "",
-                            },
-                        },
-                    },
-                    { upsert: true }
-                );
-            }
-
-            // Récupérer les messages entre le vendeur et le client
-            const messages = await sellerCustomerMessageModel.find({
-                $or: [
-                    {
-                        receiverId: sellerId,
-                        senderId: customerId,
-                    },
-                    {
-                        receiverId: customerId,
-                        senderId: sellerId,
-                    },
-                ],
-            });
-
-            // Récupérer les amis du client
-            const MyFriends = await sellerCustomerModel.findOne({ myId: customerId });
-            const currentFriend = MyFriends.myFriends.find(
-                (friend) => friend.fdId === sellerId
-            );
-
-            return responseReturn(res, 201, {
-                myFriends: MyFriends.myFriends,
-                currentFriend,
-                messages,
-            });
-        } else {
-            // Retourner la liste des amis si sellerId est vide
-            const MyFriends = await sellerCustomerModel.findOne({ myId: customerId });
-            return responseReturn(res, 200, { myFriends: MyFriends?.myFriends || [] });
-        }
-    } catch (error) {
-        console.error("Error in addFriend function in sellerCustomerModel.js:", error);
-        return res.status(500).send({ message: "Internal Server Error" });
-    }
-};
-*/
-
-export const send_message_to_seller = async (req, res) => {
+export const customer_message_to_seller = async (req, res) => {
    // console.log('req .body:', req.body);
    const {customerId,sellerId,message,name} = req.body;
    try {
@@ -290,7 +180,7 @@ export const getCustomers = async (req, res) => {
     const {sellerId } = req.params;
     try {
         const data = await sellerCustomerModel.findOne({myId:sellerId});
-        console.log('data:', data);
+       // console.log('data:', data);
         const myCustomers = data.myFriends;
         //const myFriends = data.myFriends;
         //console.log('myFriends:', myCustomers);
@@ -301,3 +191,129 @@ export const getCustomers = async (req, res) => {
         return responseReturn( res, 500, {message:"Internal Server Error"});
     }
 }
+
+export const get_customer_messages = async (req, res) => {
+    //console.log('req params:', req.params.customerId);
+    //console.log('req.id :', req.id);
+    const {customerId} = req.params;
+   // console.log( 'customerId:', customerId);
+    const id = req.id;
+   // console.log('sellerId:', id);
+    try {
+        const messages = await sellerCustomerMessageModel.find({
+            $or: [
+                {
+                    $and: [{
+                        receiverId: { $eq: customerId }
+                    }, {
+                        senderId: {
+                            $eq: id
+                        }
+                    }]
+                },
+                {
+                    $and: [{
+                        receiverId: { $eq: id }
+                    }, {
+                        senderId: {
+                            $eq : customerId
+                        }
+                    }]
+                }
+            ]
+        })
+        //console.log('messages:', messages);
+        // Vérifiez si l'ID est valide
+           /* if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
+                return responseReturn(res, 400, { message: "ID invalide" });
+            }*/
+                  // Conversion de l'ID en ObjectId
+       // const customerObjectId = mongoose.Types.ObjectId.createFromHexString(customerId);
+       // console.log('customerObjectId:', customerObjectId);
+        const currentCustomer = await customerModel.findById(customerId);
+
+      // console.log(' currentCustomer:', currentCustomer);
+
+       return responseReturn (res, 200, { messages, currentCustomer });
+    } catch (error) {
+        console.error("Error in get_customer_messages function:", error);
+        return responseReturn( res, 500, {message:"Internal Server Error"});
+    }
+}
+
+export const seller_message_to_customer = async (req, res) => {
+    // console.log('req .body:', req.body);
+    const {customerId,sellerId,message,name} = req.body;
+    try {
+     const myMessage = new sellerCustomerMessageModel({
+         senderName:name,
+         senderId:sellerId,
+         receiverId:customerId,
+         message:message,
+     })
+     await myMessage.save();
+ 
+     const data = await sellerCustomerModel.findOne({myId:sellerId});
+     let myFriends = data.myFriends;
+     let friendIndex = myFriends.findIndex(friend => friend.fdId === customerId);
+ 
+     while (friendIndex>0) {
+         let friend = myFriends[friendIndex];
+         myFriends[friendIndex] = myFriends[friendIndex-1];
+         myFriends[friendIndex-1] = friend;
+         friendIndex--;
+     }
+ 
+     await sellerCustomerModel.updateOne({myId:sellerId}, {myFriends:myFriends});
+     const data1 = await sellerCustomerModel.findOne({myId:customerId});
+     let myFriends1 = data1.myFriends;
+     let friendIndex1 = myFriends1.findIndex(friend => friend.fdId === sellerId);
+     while (friendIndex1>0) {
+         let friend = myFriends1[friendIndex1];
+         myFriends1[friendIndex1] = myFriends1[friendIndex1-1];
+         myFriends1[friendIndex1-1] = friend;
+         friendIndex1--;
+     }
+     await sellerCustomerModel.updateOne({myId:customerId}, {myFriends:myFriends1})
+     //console.log( 'my Message saved', myMessage);
+     //console.log('my message saved', myMessage.receiverId);
+     
+     return responseReturn(res, 200, {message:"Message sent successfully"}, myMessage);
+    } catch (error) {
+     console.error("Error in send_message_to_seller function:", error);
+    // return res.status(500).send({ message: "Internal Server Error" });
+     return responseReturn( res, 500, {message:"Internal Server Error"});
+    }
+ }
+
+ export const getSellers = async (req, res) => {
+    try {
+        const sellers = await sellerModel.find();
+        //console.log(' sellers:', sellers);
+        return responseReturn(res, 200, {message:"Sellers fetched successfully", sellers:sellers});
+    } catch (error) {
+        console.error("Error in getSellers function:", error);
+        return responseReturn(res, 500, {message:"Internal Server Error"});
+    }
+}
+
+export const admin_message_to_seller = async (req, res) => {
+    //console.log('req .body:', req.body);
+    const {sellerId,adminId, message,name} = req.body;
+    try {
+        const admin_Message = new adminSellerMessageModel({
+            senderName:name,
+            senderId:adminId,
+            receiverId: sellerId,
+            message:message,
+        })
+        await admin_Message.save();
+       // console.log('my Message saved', admin_Message);
+       //console.log('my admin_Message',admin_Message.receiverId);
+        return responseReturn(res, 200, {message:"Message sent successfully", admin_Message:admin_Message});
+    } catch (error) {
+        console.error("Error in admin_message_to_seller function:", error);
+        return responseReturn(res, 500, {message:"Internal Server Error"});
+    }
+    
+ }

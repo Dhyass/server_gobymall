@@ -33,13 +33,13 @@ export const admin_login = async (req, res) =>  {
    // console.log('email admin ' + email);
    //process.stdout.write("email admin : " + email + "\n");
 
-    if (!emailRegex.test(req.body.email)) {
-        responseReturn(res, 400, { message: "Email invalide" });
+    if (!emailRegex.test(email)) {
+       return responseReturn(res, 400, { message: "Email invalide" });
         //return res.status(400).json({ status: false, message: "Email invalide" });
     }
 
-    if (req.body.password.length < 8) {
-        responseReturn(res, 400, {status: false, message: "Le mot de passe doit comporter au moins 8 caractères" });
+    if (password.length < 8) {
+       return responseReturn(res, 400, {status: false, message: "Le mot de passe doit comporter au moins 8 caractères" });
         //return res.status(400).json({ status: false, message: "Le mot de passe doit comporter au moins 8 caractères" });
     }
 
@@ -59,12 +59,12 @@ export const admin_login = async (req, res) =>  {
                 role: admin.role 
             });
             res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
-            responseReturn(res, 200, {message: "Connexion réussie" , token});
+            return responseReturn(res, 200, {message: "Connexion réussie" , token});
         } else {
-            responseReturn(res, 404, { message: "Mot de passe incorrect" });
+           return responseReturn(res, 404, { message: "Mot de passe incorrect" });
         }
     } catch (error) {
-        responseReturn(res, 500, { message: "Erreur interne du serveur" });
+       return responseReturn(res, 500, { message: "Erreur interne du serveur" });
     }
 }
 

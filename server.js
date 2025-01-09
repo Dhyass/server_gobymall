@@ -30,6 +30,7 @@ const io = new Server(appServer, {
 
 let allCustomers = []; // users online
 let allSellers = []; // users online
+let allAdmins = []; // users online
 
 const addUser = (customerId,socketId,customerInfo) => {
     const customerExists = allCustomers.some((customer) => customer.customerId === customerId);
@@ -40,7 +41,7 @@ const addUser = (customerId,socketId,customerInfo) => {
             customerInfo,
         });
     }
-   // console.log(allCustomers);
+   //console.log('all Customers', allCustomers);
 };
 
 const addSeller = (sellerId,socketId,userInfo) => {
@@ -52,6 +53,31 @@ const addSeller = (sellerId,socketId,userInfo) => {
             userInfo,
         })
     }
+   // console.log('all Sellers', allSellers);
+};
+const addAdmin = (adminId,socketId,userInfo) => {
+    const adminExists = allAdmins.some((admin) => admin.adminId === adminId);
+    if (!adminExists) {
+        allAdmins.push({
+            adminId,
+            socketId,
+            userInfo,
+        })
+    }
+   // console.log('all Admins', allAdmins);
+}
+
+const findCustomer = (customerId) =>{
+    return allCustomers.find((customer) => customer.customerId === customerId);
+}
+
+const findSeller = (sellerId) => {
+    return allSellers.find((seller) => seller.sellerId.sellerId === sellerId);
+}
+
+const remove = (socketId) => {
+    allCustomers = allCustomers.filter((customer) => customer.socketId !== socketId);
+    allSellers = allSellers.filter((seller) => seller.socketId !== socketId);
 }
 
 // Gestion des connexions Socket.io
@@ -59,19 +85,59 @@ io.on('connection', (socket) => {
     console.log('Client Socket connecté');
     // Ajout d'un utilisateur
     socket.on('add_customer', (customerId, customerInfo) => {
-       // console.log(customerId, customerInfo);
+      // console.log(customerId, customerInfo);
        addUser(customerId, socket.id, customerInfo);
+       io.emit('activeCustomer', allCustomers);
+       io.emit('activeSeller', allSellers);
     });
 
     // Ajout d'un vendeur
     socket.on('add_seller', (sellerId, userInfo) => {
         //console.log(sellerId, userInfo);
         addSeller(sellerId, socket.id, userInfo);
+        io.emit('activeSeller', allSellers);
+        io.emit('activeCustomer', allCustomers);
      });
+     // ajout d'un adminstrateur 
+     socket.on('add_admin', (adminInfo) => {
+        //console.log(adminId, adminInfo);
+        delete adminInfo.email
+        const admin = adminInfo
+        admin.socketId = socket.id
+        io.emit('activeSeller', allSellers);
+     })
+
+    socket.on('send_message_to_Customer',(message)=>{
+        //console.log('message coté serveur  ',message);
+        //console.log('customer id  ',message.receiverId);
+        const customer = findCustomer(message.receiverId);
+        //console.log('cusytomer ',customer);
+        if(customer !== undefined){
+           // console.log('message coté serveur  ',message);
+           console.log(' ');
+            socket.to(customer.socketId).emit('receive_seller_message',message);
+        }
+    });
+
+    socket.on('send_message_to_seller',(message)=>{
+        //console.log('message coté serveur  ',message);
+      //  console.log('seller id  ',message.receiverId);
+       const seller = findSeller(message.receiverId);
+       // console.log('seller  ',seller );
+        if(seller !== undefined){
+           // console.log('message coté serveur  ',message);
+           console.log(' ');
+            socket.to(seller.socketId).emit('receive_customer_message',message);
+        }
+    });
+
 
     // Déconnexion
     socket.on('disconnect', () => {
         console.log('Client Socket déconnecté');
+        remove(socket.id);
+        io.emit('activeSeller', allSellers);
+        io.emit('activeCustomer', allCustomers);
     });
 });
 
@@ -98,7 +164,7 @@ app.use(cookieParser());
 app.use('/api', authRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', productRoutes);
-app.use('/api', sellerRoutes);
+app.use('/api/seller', sellerRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api', authHomeRoutes);

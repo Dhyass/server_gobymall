@@ -4,7 +4,7 @@ import { responseReturn } from "../../utiles/response.js";
 const { Types } = mongoose;
 
 export const get_seller_request = async (req, res) =>  {
-    //console.log(req.query);
+   /// console.log('get seller request ',req.query);
     const { page = 1, searchValue = '', parPage = 10 } = req.query;
     const itemsPerPage = parseInt(parPage, 10);
     const skipPage = itemsPerPage * (parseInt(page, 10) - 1);
@@ -24,12 +24,12 @@ export const get_seller_request = async (req, res) =>  {
              //  console.log("Type de categories :", Array.isArray(categories)); // Vérification du type
        // console.log("Valeur de categories :", categories); // Vérification de la valeur
 
-        responseReturn(res, 200, { sellers, totalSellers });
+      return  responseReturn(res, 200, { sellers, totalSellers });
         }
 
     } catch (error) {
         console.error(error.message);
-        responseReturn(res, 500, { message: "An error occurred while retrieving sellers." });
+     return responseReturn(res, 500, { message: "An error occurred while retrieving sellers." });
     }
 };
 

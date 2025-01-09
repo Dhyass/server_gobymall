@@ -216,7 +216,7 @@ export const get_product_by_id = async (req, res) => {
         }
 
         // Retourner le produit
-        responseReturn(res, 200, { product });
+       return  responseReturn(res, 200, { product });
     } catch (error) {
         console.error("Erreur lors de la récupération du produit :", error.message);
         
