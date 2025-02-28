@@ -16,6 +16,7 @@ import authHomeRoutes from './routes/homeRoutes/authHomeRoutes.js';
 import cardRoutes from './routes/homeRoutes/cardRoutes.js';
 import homeRoutes from './routes/homeRoutes/homeRoutes.js';
 import orderRoutes from './routes/ordersRouters/orderRoutes.js';
+import paymentRoutes from './routes/paymentRoutes/paymentRoutes.js';
 
 const app = express();
 const appServer = http.createServer(app);
@@ -80,6 +81,15 @@ const remove = (socketId) => {
     allSellers = allSellers.filter((seller) => seller.socketId !== socketId);
 }
 
+let admin = {}
+
+const removeAdmin = (socketId) => {
+    if (admin.socketId === socketId) {
+        admin = {}
+    }
+}
+
+
 // Gestion des connexions Socket.io
 io.on('connection', (socket) => {
     console.log('Client Socket connecté');
@@ -97,14 +107,16 @@ io.on('connection', (socket) => {
         addSeller(sellerId, socket.id, userInfo);
         io.emit('activeSeller', allSellers);
         io.emit('activeCustomer', allCustomers);
+        io.emit('ActiveAdmin', {status : true});
      });
      // ajout d'un adminstrateur 
      socket.on('add_admin', (adminInfo) => {
         //console.log(adminId, adminInfo);
         delete adminInfo.email
-        const admin = adminInfo
+        admin = adminInfo
         admin.socketId = socket.id
         io.emit('activeSeller', allSellers);
+        io.emit('ActiveAdmin', {status : true});
      })
 
     socket.on('send_message_to_Customer',(message)=>{
@@ -131,11 +143,32 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('send_message_admin_to_seller',(message) => {
+        //console.log('message envoyé au vendeur  ', message);
+        //console.log('seller id  ',message.receiverId);
+        const seller = findSeller(message.receiverId);
+       // console.log('seller  ',seller );
+        if(seller !== undefined){
+           // console.log('message coté serveur  ',message);
+           console.log(' ');
+            socket.to(seller.socketId).emit('receive_admin_message',message);
+        }
+    })
+
+    socket.on('send_message_seller_to_admin',(message) => {
+        if (admin.socketId) {
+            socket.to(admin.socketId).emit('receive_seller_message', message);
+        }
+    })
+
+
 
     // Déconnexion
     socket.on('disconnect', () => {
         console.log('Client Socket déconnecté');
         remove(socket.id);
+        removeAdmin (socket.id);
+        io.emit('ActiveAdmin', {status : false});
         io.emit('activeSeller', allSellers);
         io.emit('activeCustomer', allCustomers);
     });
@@ -170,6 +203,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api', authHomeRoutes);
 app.use('/api', cardRoutes);
 app.use('/api', orderRoutes);
+app.use('/api', paymentRoutes);
 
 // Route d'accueil
 app.get('/', (req, res) => res.send('Hello, world!'));

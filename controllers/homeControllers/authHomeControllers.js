@@ -67,7 +67,7 @@ export const customer_register= async(req, res) =>{
             email : newCustomer.email,
             method : newCustomer.method 
         });
-        res.cookie('CustomerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
         
         //console.log(newSeller);
         return responseReturn(res, 201, {message: " Votre  compte client est bien créé" , token});
@@ -110,7 +110,7 @@ export const customer_login = async (req, res) => {
             email : customer.email,
             method : customer.method 
         });
-        res.cookie('CustomerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
             return responseReturn(res, 200, { message: "Connexion réussie", token });
         } else {
             return responseReturn(res, 404, { message: "Mot de passe incorrect" });
@@ -148,7 +148,8 @@ export const customer_logouts = async (req, res) => {
         });
         
         // Retourne une réponse de succès
-        return res.status(200).json({ success: true, message: 'Logout successful' });
+        return responseReturn(res, 200, { message: 'Déconnexion réussie' });
+        //return res.status(200).json({ success: true, message: 'Logout successful' });
     } catch (error) {
         // Gestion des erreurs
         return res.status(500).json({ success: false, error: error.message });

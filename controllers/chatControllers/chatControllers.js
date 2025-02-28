@@ -310,10 +310,123 @@ export const admin_message_to_seller = async (req, res) => {
         await admin_Message.save();
        // console.log('my Message saved', admin_Message);
        //console.log('my admin_Message',admin_Message.receiverId);
-        return responseReturn(res, 200, {message:"Message sent successfully", admin_Message:admin_Message});
+        return responseReturn(res, 200, {admin_Message:admin_Message});
     } catch (error) {
         console.error("Error in admin_message_to_seller function:", error);
         return responseReturn(res, 500, {message:"Internal Server Error"});
     }
     
  }
+ export const seller_message_to_admin = async (req, res) => {
+    //console.log('req .body:', req.body);
+    const {sellerId,adminId, message,name} = req.body;
+    try {
+        const seller_Message = new adminSellerMessageModel({
+            senderName:name,
+            senderId:sellerId,
+            receiverId: adminId,
+            message:message,
+        })
+        await seller_Message.save();
+       // console.log('my Message saved', admin_Message);
+       //console.log('my admin_Message',admin_Message.receiverId);
+        return responseReturn(res, 200, {seller_Message:seller_Message});
+    } catch (error) {
+        console.error("Error in seller_message_to_admin function:", error);
+        return responseReturn(res, 500, {message:"Internal Server Error"});
+    }
+    
+ }
+ //get_admin_messages
+ export const get_admin_messages = async (req, res) => {
+    //console.log('req params:', req.params);
+    //console.log('req.id :', req.id);
+    const {receiverId} = req.params;
+    //console.log( 'sellerId:', receiverId);
+     const adminId = '';
+    //console.log('adminId:', adminId);
+    try {
+        const messages = await adminSellerMessageModel.find({
+            $or: [
+                {
+                    $and: [{
+                        receiverId: { $eq: receiverId}
+                    }, {
+                        senderId: {
+                            $eq: adminId
+                        }
+                    }]
+                },
+                {
+                    $and: [{
+                        receiverId: { $eq: adminId }
+                    }, {
+                        senderId: {
+                            $eq : receiverId
+                        }
+                    }]
+                }
+            ]
+        })
+      // console.log('messages:', messages);
+
+       let currentSeller = {}
+
+       if (receiverId) {
+        currentSeller = await sellerModel.findById(receiverId);
+       }else{
+        return responseReturn (res, 400, {message: 'Seller not found'})
+       }
+        
+      //console.log(' currentSeller:', currentSeller);
+
+     return responseReturn (res, 200, { messages, currentSeller});
+    } catch (error) {
+        console.error("Error in get_admin_messages function:", error);
+        return responseReturn( res, 500, {message:"Internal Server Error"});
+    }
+    
+}
+
+//get_seller_messages
+export const get_seller_messages = async (req, res) => {
+    //console.log('req params:', req.params);
+    //console.log('req.id :', req.id);
+    const receiverId = '';
+    //console.log( 'sellerId:', receiverId);
+     const sellerId = req.id;
+    //console.log('sellerId : ', sellerId);
+    try {
+        const messages = await adminSellerMessageModel.find({
+            $or: [
+                {
+                    $and: [{
+                        receiverId: { $eq: receiverId}
+                    }, {
+                        senderId: {
+                            $eq: sellerId 
+                        }
+                    }]
+                },
+                {
+                    $and: [{
+                        receiverId: { $eq: sellerId  }
+                    }, {
+                        senderId: {
+                            $eq : receiverId
+                        }
+                    }]
+                }
+            ]
+        })
+       //console.log('messages:', messages);
+
+     return responseReturn (res, 200, {messages});
+    } catch (error) {
+        console.error("Error in get_admin_messages function:", error);
+        return responseReturn( res, 500, {message:"Internal Server Error"});
+    }
+    
+}
+
+

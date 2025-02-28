@@ -1,10 +1,15 @@
 
 import moment from "moment";
 import mongoose from "mongoose";
+import Stripe from 'stripe'; // Assure-toi que tu utilises une version compatible ES Modules.
 import authOrderModel from "../../models/authOrderModel.js";
 import cardModel from "../../models/cardModel.js";
 import customerOrderModel from "../../models/customerOrderModel.js";
+import myShopWalletSchemaModel from "../../models/myShopWalletModel.js";
+import sellerWalletModel from "../../models/sellerWalletModel.js";
 import { responseReturn } from "../../utiles/response.js";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // Utilise la clé depuis l'environnement.
+
 
 export const payment_check = async (id) => {
     try {
@@ -64,6 +69,7 @@ export const place_order = async (req, res)  => {
         for (let j = 0; j < product.length; j++) {
             const tempProduct = product[j].productInfo;
             //console.log(`tempProduct_${i}${j} : `, tempProduct);
+            tempProduct.quantity = product[j].quantity;
             customerOrderProducts.push(tempProduct)
             if (product[j]._id) {
                 cardId.push(product[j]._id)
@@ -253,10 +259,10 @@ export const get_dashboard_data = async (req, res) => {
        const totalOrder = await customerOrderModel.countDocuments({customerId: customerObjectId})
         
     
-        responseReturn (res, 200, {message:'Successful Orders request', recentOrder, pendingOrder, cancelledOrder, totalOrder });
+       return responseReturn (res, 200, {message:'Successful Orders request', recentOrder, pendingOrder, cancelledOrder, totalOrder });
       
     } catch (error) {
-        responseReturn (res, 500, { message: "Error fetching order" });
+       return responseReturn (res, 500, { message: "Error fetching order" });
     }
 }
 
@@ -269,18 +275,278 @@ export const get_order_by_id = async (req, res) => {
         }
         const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
         const order = await customerOrderModel.findById(orderObjectId);
-        //console.log(' order :>> ', order);
+        console.log(' order :>> ', order);
         if (!order) {
             return responseReturn(res, 404, { message: "Order not found" });
         }
-        responseReturn(res, 200, { message: "Order found", order });
+      return  responseReturn(res, 200, { message: "Order found", order });
         
     } catch (error) {
         console.log('error :>> ', error);
-        responseReturn(res, 500, { message: "Error fetching order" });
+       return responseReturn(res, 500, { message: "Error fetching order" });
     }
 }
 
 
+export const get_admin_orders = async(req,res)=>{
+    //console.log('req query', req.query);
+    let {page,searchValue, parPage} = req.query;
+    page = parseInt(page)
+    parPage = parseInt(parPage)
+
+    const skipPage = parPage*(page-1)
+
+    try {
+        if (searchValue) {
+            
+        } else {
+            const orders = await customerOrderModel.aggregate([
+                {
+                    $lookup: {
+                        from :'authorders',
+                        localField: '_id',
+                        foreignField: 'orderId',
+                        as: 'subOrder'
+                    }
+                }
+            ]).skip(skipPage).limit(parPage).sort({createdAt: -1});
+
+            const totalOrder = await customerOrderModel.countDocuments([
+                {
+                    $lookup: {
+                        from :'authorders',
+                        localField: '_id',
+                        foreignField: 'orderId',
+                        as: 'subOrder'
+                    }
+                }
+            ]);
+
+           // console.log('orders', orders);
+            return responseReturn(res, 200, { orders, totalOrder });
+        }
+    } catch (error) {
+        console.log('error :>> ', error);
+        return responseReturn(res, 500, { message: "Error fetching orders" });
+    }
+}
+
+export const get_admin_order_by_ID = async(req, res)=>{
+    //console.log('params ', req.params)
+   const {orderId} = req.params;
+
+   try {
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return responseReturn(res, 400, { message: "ID invalide" });
+        }
+        const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
+        const order = await customerOrderModel.aggregate([
+            {
+                $match : {_id: orderObjectId}
+            },
+            
+                {
+                    $lookup: {
+                        from :'authorders',
+                        localField: '_id',
+                        foreignField: 'orderId',
+                        as: 'subOrder'
+                    }
+                }
+        ])
+       // console.log('order ', order)
+        return responseReturn( res, 200, { order:order[0]});
+   } catch (error) {
+         console.log('error :>> ', error);
+        return responseReturn(res, 500, { message: "Error fetching order" });
+   }
+}
+
+export const admin_order_status_update = async(req, res)=>{
+    const {status} = req.body;
+    const {orderId} = req.params;
+   // console.log('req.body :>> ', req.body);
+   // console.log('req params ', req.params);
+   try {
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+        return responseReturn(res, 400, { message: "ID invalide" });
+    }
+    const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
+    const order = await customerOrderModel.findByIdAndUpdate(orderObjectId,{
+        delivery_status :status
+    })
+    if(!order){
+        return responseReturn(res, 404, { message: "Order not found" });
+    }
+    return responseReturn(res, 200, { message: "Order status updated successfully"});
+   } catch (error) {
+    console.log('error :>> ', error);
+    return responseReturn(res, 500, { message: "Error updating order status" });
+   }
+}
 
 
+export const get_seller_orders = async(req,res)=>{
+    //console.log('req query', req.query);
+    //console.log('req params ', req.params);
+    const {sellerId} = req.params;
+    let {page,searchValue, parPage} = req.query;
+    page = parseInt(page)
+    parPage = parseInt(parPage)
+
+    const skipPage = parPage*(page-1)
+
+    try {
+        if (searchValue) {
+            
+        } else {
+            const orders = await authOrderModel.find({sellerId}).skip(skipPage).limit(parPage).sort({createdAt: -1});
+            const totalOrders = await authOrderModel.countDocuments({sellerId});
+           // console.log('orders :>> ', orders);
+            return responseReturn(res, 200, { orders, totalOrders });
+        }
+    } catch (error) {
+        console.log('error :>> ', error);
+        return responseReturn(res, 500, { message: "Error fetching orders" });
+    }
+}
+
+export const get_seller_order_by_ID = async(req, res)=>{
+   // console.log('params ', req.params)
+   const {orderId} = req.params;
+   try {
+    /*if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+        return responseReturn(res, 400, { message: "ID invalide" });
+    }
+    const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);*/
+    const order = await authOrderModel.findById(orderId)
+   //console.log('order ', order)
+    return responseReturn( res, 200, { order:order});
+} catch (error) {
+     console.log('error :>> ', error);
+    return responseReturn(res, 500, { message: "Error fetching order" });
+}
+}
+
+export const seller_order_status_update = async(req, res)=>{
+    const {status} = req.body;
+    const {orderId} = req.params;
+   //console.log('req.body :>> ', req.body);
+  // console.log('req params ', req.params);
+   try {
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+        return responseReturn(res, 400, { message: "ID invalide" });
+    }
+    const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
+    const order = await authOrderModel.findByIdAndUpdate(orderObjectId,{
+        delivery_status :status
+    })
+    if(!order){
+        return responseReturn(res, 404, { message: "Order not found" });
+    }
+    return responseReturn(res, 200, { message: "Order status updated successfully"});
+   } catch (error) {
+    console.log('error :>> ', error);
+    return responseReturn(res, 500, { message: "Error updating order status" });
+   }
+}
+/*
+export const create_payment = async (req, res) => {
+    const { price } = req.body;
+
+    console.log('Price received in request:', price);
+
+    // Validate the price
+    if (!price || isNaN(price) || price <= 0) {
+        return responseReturn(res, 400, { message: "Invalid price provided" });
+    }
+
+    try {
+        const payment = await stripe.paymentIntents.create({
+            amount: Math.round(price * 100), // Convert to smallest currency unit
+            currency: 'usd',
+            automatic_payment_methods: {
+                enabled: true,
+            },
+        });
+
+        console.log('Payment Intent created:', payment);
+        return responseReturn(res, 200, { clientSecret: payment.client_secret });
+    } catch (error) {
+        console.error('Error creating payment intent:', error);
+        return responseReturn(res, 500, { message: "Error creating payment" });
+    }
+};
+*/
+
+export const create_payment = async (req, res) => {
+    const { price } = req.body;
+
+    //console.log('Price received in request:', price);
+
+    // Validate the price
+    if (!price || isNaN(price) || price <= 0) {
+       // console.error("Invalid price received:", price);
+        return res.status(400).json({ message: "Invalid price provided" });
+    }
+
+    try {
+        const payment = await stripe.paymentIntents.create({
+            amount: Math.round(price * 100), // Convert price to cents
+            currency: 'usd',
+            automatic_payment_methods: { enabled: true },
+        });
+
+       // console.log('Payment Intent created:', payment);
+        res.status(200).json({ clientSecret: payment.client_secret });
+    } catch (error) {
+        console.error('Error creating payment intent:', error);
+        res.status(500).json({ message: "Error creating payment" });
+    }
+};
+
+
+export const order_confirm = async(req, res)=>{
+    const {orderId} = req.params;
+    //console.log('order id ', orderId);
+    try {
+        await customerOrderModel.findByIdAndUpdate(orderId, 
+            {
+                payment_status:'paid',
+                delivery_status:'pending'
+            })
+            if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+                return responseReturn(res, 400, { message: "ID invalide" });
+            }
+            const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
+            const order = await authOrderModel.updateMany({orderId : orderObjectId},{
+                payment_status:'paid',
+                delivery_status:'pending'
+            })
+            const customerOrder = await customerOrderModel.findById(orderId)
+            const authOrder = await authOrderModel.find({orderId : orderObjectId})
+            const time = moment(Date.now()).format('l')
+            const splitTime = time.split('/')
+
+            await myShopWalletSchemaModel.create({
+                amount : customerOrder.price,
+                month : splitTime[0],
+                year : splitTime[2]
+            })
+
+            for (let i = 0; i < authOrder.length; i++) {
+                await sellerWalletModel.create({
+                    sellerId : authOrder[i].sellerId.toString(),
+                    amount : authOrder[i].price,
+                    month : splitTime[0],
+                    year : splitTime[2]
+                })
+                
+            }
+
+            return responseReturn(res, 200, {message : 'success'});
+    } catch (error) {
+        console.log('error :>> ', error);
+        return responseReturn(res, 500, { message: "Error confirm order" });
+    }
+}

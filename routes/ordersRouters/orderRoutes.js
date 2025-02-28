@@ -1,7 +1,20 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { get_dashboard_data, get_order_by_id, get_orders, place_order } from '../../controllers/ordersControllers/orderControllers.js';
+import {
+    admin_order_status_update,
+    create_payment,
+    get_admin_order_by_ID,
+    get_admin_orders,
+    get_dashboard_data,
+    get_order_by_id,
+    get_orders,
+    get_seller_order_by_ID,
+    get_seller_orders,
+    order_confirm,
+    place_order,
+    seller_order_status_update
+} from '../../controllers/ordersControllers/orderControllers.js';
 
 
 
@@ -34,6 +47,17 @@ router.post('/order/place_order', place_order);
 router.get('/order/get_order/:customerId/:status', get_orders);
 router.get('/customer/get_dashboard_data/:customerId',get_dashboard_data)
 router.get('/order/get_order_by_id/:orderId', get_order_by_id);
+router.post('/order/create-payment', create_payment)
+router.get('/order/confirm/:orderId', order_confirm)
+
+router.get('/order/admin/get_admin_orders', get_admin_orders)
+router.get('/order/admin/get_admin_order/:orderId', get_admin_order_by_ID);
+router.put('/order/admin/admin_order_status_update/:orderId',admin_order_status_update)
+
+router.get('/order/seller/get_seller_orders/:sellerId', get_seller_orders)
+router.get('/order/seller/get_seller_order/:orderId', get_seller_order_by_ID);
+router.put('/order/seller/seller_order_status_update/:orderId',seller_order_status_update)
+
 
 
 

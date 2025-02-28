@@ -90,3 +90,55 @@ export const seller_status_update = async (req, res) => {
     }
 
 }
+
+export const get_active_sellers = async (req, res) => {
+    let {page, searchValue, parPage, status} = req.query;
+    //console.log('stauts ', req.body);
+    //console.log(' req.query: ', req.query);
+    page = parseInt(page)
+    parPage = parseInt(parPage)
+    const skipPage = (page - 1) * parPage;
+
+    try {
+        if (searchValue) {
+            const sellers = await sellerModel.find({
+                status: status,
+                $text : { $search: searchValue }
+            }).skip(skipPage).limit(parPage).sort({createdAt:-1});
+            console.log(' sellers ', sellers)
+            const total_active_sellers = await sellerModel.countDocuments({ status: status, $text : { $search: searchValue }});
+            console.log(' total_active_sellers ', total_active_sellers)
+            return responseReturn(res, 200, { sellers, total_active_sellers });
+        }else {
+            const sellers = await sellerModel.find({status: status}).skip(skipPage).limit(parPage).sort({createdAt:-1});
+            const total_active_sellers = await sellerModel.countDocuments({ status: status });
+           // console.log(' sellers ', sellers)
+            //console.log(' total_active_sellers ', total_active_sellers)
+            return responseReturn(res, 200, { sellers, total_active_sellers });
+        }
+    } catch (error) {
+        console.log("Erreur du serveur: " + error.message + "\n");
+        return responseReturn(res, 500, { error: "Erreur interne du serveur" });
+    }
+}
+
+export const delete_seller = async (req, res) => {
+    const { sellerId } = req.params; // ID du produit à supprimer
+    //console.log("seller à supprimer", req.params);
+    //console.log("produit : " , product);
+    try {
+        // Récupérer le produit par ID
+        const seller = await sellerModel.findById(sellerId);
+
+        if (!seller) {
+            return responseReturn(res, 404, { message: 'Produit introuvable.' });
+        }
+
+        await sellerModel.findByIdAndDelete(sellerId);
+
+        responseReturn(res, 200, { message: 'vendeur supprimé' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du vendeur :', error.message);
+        responseReturn(res, 500, { message: 'Erreur lors de la suppression du vendeur.' });
+    }
+};

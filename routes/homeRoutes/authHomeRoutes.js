@@ -34,7 +34,7 @@ const storage = multer.diskStorage({
 
 router.post('/customer/customer_register', customer_register);
 router.post('/customer/customer_login', customer_login);
-router.get('/customer/logout', customer_logout )
+router.post('/customer/logout', customer_logout )
 
 
 export default router;  //export the router
