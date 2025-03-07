@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { active_stripe_connect_account, confirm_withdrawal_request, create_stripe_connect_account, get_seller_payment_details, get_withdrawal_request, send_withdrawal_request } from '../../controllers/paymentControllers/paymentController.js';
+import { get_admin_dashboard_data, get_seller_dashboard_data } from '../../controllers/dashboardControllers/dashboardIndexController.js';
 import { authMiddleware } from '../../middlewares/authMiddleware.js';
 
 
@@ -31,16 +31,9 @@ const storage = multer.diskStorage({
  };
  const upload = multer({ storage, fileFilter });
 
-router.get('/seller/payment/create_stripe_account', authMiddleware,create_stripe_connect_account);
-router.put('/seller/payment/active_stripe_account/:activeCode', authMiddleware,active_stripe_connect_account);
+router.get('/seller/get_seller_dashboard_index_data',authMiddleware,get_seller_dashboard_data);
+router.get('/admin/get_admin_dashboard_index_data',authMiddleware,get_admin_dashboard_data);
 
-router.get('/seller/payment/seller_payment_details/:sellerId', authMiddleware,get_seller_payment_details);
-
-router.post('/seller/payment/send_withdrawal_request', authMiddleware,send_withdrawal_request);
-
-router.get('/admin/payment/get_seller_payment_request', authMiddleware,get_withdrawal_request);
-
-router.post('/admin/payment/request-confirm', authMiddleware, confirm_withdrawal_request);
 
 export default router;  //export the router
-// /seller/payment/send_withdrawal_request
+//export default router; // export the router as a default export

@@ -1,5 +1,5 @@
 
-//import mongoose from "mongoose";
+import mongoose from "mongoose";
 import Stripe from 'stripe'; // Assure-toi que tu utilises une version compatible ES Modules.
 import { v4 as uuidv4 } from "uuid";
 import sellerModel from "../../models/sellerModel.js";
@@ -197,8 +197,9 @@ export const get_seller_payment_details = async (req, res) => {
 
     let availableAmount = 0;
 
-    if (totalAmount) {
-      availableAmount = totalAmount - (pendingAmount - successAmount);
+    if (totalAmount>0) {
+      availableAmount = totalAmount - (pendingAmount + successAmount);
+     // console.log('available Amount', availableAmount)
     }
 
   //  console.log('Available Amount:', availableAmount);
@@ -231,3 +232,93 @@ export const send_withdrawal_request= async (req, res) => {
     return responseReturn(res, 500, { message: 'Internal error' });
   }
 }
+
+export const get_withdrawal_request= async (req, res) => {
+  try {
+    const withdrawalRequest = await withdrawRequestModel.find({ status: 'pending' })
+    responseReturn(res, 200, { withdrawalRequest })
+  } catch (error) {
+      responseReturn(res, 500, { message: 'Internal server error' })
+  }
+}
+/*
+export const confirm_withdrawal_request= async (req, res) => {
+  const { paymentId } = req.body
+  console.log('payment id ', paymentId)
+
+        try {
+            const payment = await withdrawRequestModel.findById(paymentId)
+           // console.log('payment ', payment)
+           if (!paymentId || !mongoose.Types.ObjectId.isValid(paymentId)) {
+                           return responseReturn(res, 400, { message: "ID invalide" });
+                    }
+             const paymentObjectId = mongoose.Types.ObjectId.createFromHexString(paymentId);
+            const { stripeId } = await stripeModel.findOne({
+                sellerId: paymentObjectId
+            })
+
+            await stripe.transfers.create({
+                amount: payment.amount * 100,
+                currency: 'usd',
+                destination: stripeId
+            })
+            await withdrowRequest.findByIdAndUpdate(paymentId, { status: 'success' })
+            responseReturn(res, 200, { payment, message: 'request confirm success' })
+        } catch (error) {
+            console.log(error)
+            responseReturn(res, 500, { message: 'Internal server error' })
+        }
+
+}*/
+
+
+export const confirm_withdrawal_request = async (req, res) => {
+  const { paymentId } = req.body;
+
+  console.log('payment id ', paymentId);
+
+  // Vérifiez si l'ID est valide
+  if (!paymentId || !mongoose.Types.ObjectId.isValid(paymentId)) {
+    return responseReturn(res, 400, { message: "ID de paiement invalide" });
+  }
+
+  try {
+    // Vérifiez si la demande de retrait existe
+    const payment = await withdrawRequestModel.findById(paymentId);
+    if (!payment) {
+      return responseReturn(res, 404, { message: "Demande de retrait introuvable" });
+    }
+
+   // console.log('payment ', payment)
+
+    // Récupérez le sellerId depuis la demande de retrait
+    const { sellerId } = payment;
+    console.log('sellerId ', sellerId)
+    if (!sellerId) {
+      return responseReturn(res, 400, { message: "ID du vendeur introuvable dans la demande de retrait" });
+    }
+
+    // Recherchez le compte Stripe associé au vendeur
+    const stripeData = await stripeModel.findOne({ sellerId: new mongoose.Types.ObjectId(sellerId) });
+    if (!stripeData || !stripeData.stripeId) {
+      return responseReturn(res, 404, { message: "Aucun compte Stripe associé trouvé pour ce vendeur" });
+    }
+
+    const { stripeId } = stripeData;
+
+    // Créez le transfert Stripe
+    await stripe.transfers.create({
+      amount: payment.amount * 100, // Assurez-vous que payment.amount est un nombre
+      currency: 'usd',
+      destination: stripeId,
+    });
+
+    // Mettez à jour le statut de la demande de retrait
+    await withdrawRequestModel.findByIdAndUpdate(paymentId, { status: 'success' });
+
+    responseReturn(res, 200, { payment, message: 'Demande de retrait confirmée avec succès' });
+  } catch (error) {
+    console.error(error);
+    responseReturn(res, 500, { message: 'Erreur interne du serveur' });
+  }
+};
