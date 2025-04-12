@@ -318,7 +318,7 @@ export const admin_message_to_seller = async (req, res) => {
     
  }
  export const seller_message_to_admin = async (req, res) => {
-    //console.log('req .body:', req.body);
+   // console.log('req .body:', req.body);
     const {sellerId,adminId, message,name} = req.body;
     try {
         const seller_Message = new adminSellerMessageModel({

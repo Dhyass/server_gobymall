@@ -61,7 +61,123 @@ export const create_stripe_connect_account = async(req, res)=>{
   }
 }
 
+/*
+export const create_stripe_connect_account  = async (req, res) => {
+  const { id } = req; // ID du vendeur
+  const uid = uuidv4(); // Code d'activation unique
 
+  try {
+    let stripeInfo = await stripeModel.findOne({ sellerId: id });
+
+    // Si un compte Stripe existe déjà
+    if (stripeInfo) {
+      const account = await stripe.accounts.retrieve(stripeInfo.stripeId);
+
+      // Si le compte n'est pas encore activé
+      if (!account.charges_enabled || !account.payouts_enabled || account.requirements.pending_verification.length > 0) {
+        const accountLink = await stripe.accountLinks.create({
+          account: account.id,
+          refresh_url: `${process.env.CLIENT_URL}/refresh`,
+          return_url: `${process.env.CLIENT_URL}/success?activeCode=${stripeInfo.code}`,
+          type: 'account_onboarding',
+        });
+
+        return responseReturn(res, 200, { url: accountLink });
+      }
+
+      // Le compte est déjà activé
+      return responseReturn(res, 200, {
+        message: "Compte Stripe déjà activé pour ce vendeur.",
+        stripeId: stripeInfo.stripeId,
+      });
+    }
+
+    // Aucun compte Stripe trouvé : on crée un nouveau compte
+    const account = await stripe.accounts.create({ type: 'express' });
+
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: `${process.env.CLIENT_URL}/refresh`,
+      return_url: `${process.env.CLIENT_URL}/success?activeCode=${uid}`,
+      type: 'account_onboarding',
+    });
+
+    // Enregistrer les infos du compte Stripe dans la base de données
+    await stripeModel.create({
+      sellerId: id,
+      stripeId: account.id,
+      code: uid,
+    });
+
+    return responseReturn(res, 201, { url: accountLink });
+  } catch (error) {
+    console.error('Erreur Stripe :', error.message);
+    return responseReturn(res, 500, { message: 'Erreur interne Stripe' });
+  }
+};
+*/
+
+/*
+export const create_stripe_connect_account = async (req, res) => {
+  const { id } = req; // ID du vendeur
+  const uid = uuidv4(); // Code d'activation unique
+
+  try {
+    let stripeInfo = await stripeModel.findOne({ sellerId: id });
+
+    if (stripeInfo) {
+      const account = await stripe.accounts.retrieve(stripeInfo.stripeId);
+
+      // Vérifiez si des actions supplémentaires sont requises
+      if (
+        !account.charges_enabled ||
+        !account.payouts_enabled ||
+        account.requirements.pending_verification.length > 0
+      ) {
+        const accountLink = await stripe.accountLinks.create({
+          account: account.id,
+          refresh_url: `${process.env.CLIENT_URL}/refresh`,
+          return_url: `${process.env.CLIENT_URL}/success?activeCode=${stripeInfo.code}`,
+          type: "account_onboarding",
+        });
+
+        return responseReturn(res, 200, {
+          message: "Actions supplémentaires requises pour activer le compte.",
+          url: accountLink.url, // Redirige le vendeur vers le lien d'onboarding
+        });
+      }
+
+      // Le compte est déjà activé
+      return responseReturn(res, 200, {
+        message: "Compte Stripe déjà activé pour ce vendeur.",
+        stripeId: stripeInfo.stripeId,
+      });
+    }
+
+    // Aucun compte Stripe trouvé : on crée un nouveau compte
+    const account = await stripe.accounts.create({ type: "express" });
+
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: `${process.env.CLIENT_URL}/refresh`,
+      return_url: `${process.env.CLIENT_URL}/success?activeCode=${uid}`,
+      type: "account_onboarding",
+    });
+
+    // Enregistrer les infos du compte Stripe dans la base de données
+    await stripeModel.create({
+      sellerId: id,
+      stripeId: account.id,
+      code: uid,
+    });
+
+    return responseReturn(res, 201, { url: accountLink.url });
+  } catch (error) {
+    console.error("Erreur Stripe :", error.message);
+    return responseReturn(res, 500, { message: "Erreur interne Stripe" });
+  }
+};
+*/
 
 export const active_stripe_connect_account = async (req, res) => {
   //console.log(' req params ', req.params)
@@ -305,6 +421,9 @@ export const confirm_withdrawal_request = async (req, res) => {
     }
 
     const { stripeId } = stripeData;
+
+    console.log('stripeId ', stripeId)
+    console.log('payment.amount ', payment.amount)
 
     // Créez le transfert Stripe
     await stripe.transfers.create({

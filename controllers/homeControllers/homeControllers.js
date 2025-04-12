@@ -448,6 +448,7 @@ export const getProductReviews = async (req, res) => {
             }
         });
 
+        console.log('rating_review ', rating_review);
         // Récupérer les avis avec pagination
         const reviews = await reviewModel
             .find({
@@ -456,6 +457,8 @@ export const getProductReviews = async (req, res) => {
             .skip(skip)
             .limit(parPage)
             .sort({ createdAt: -1 });
+
+            console.log('rewiews ', reviews);
 
         // Retourner les avis avec les statistiques
         return responseReturn(res, 200, {

@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 
 
-import { add_banner } from '../../controllers/dashboardControllers/bannerControllers.js';
+import { add_banner, get_banners, get_product_banners, update_product_banner } from '../../controllers/dashboardControllers/bannerControllers.js';
 import { authMiddleware } from '../../middlewares/authMiddleware.js';
 
 
@@ -35,8 +35,8 @@ const upload = multer({ storage, fileFilter });
 
 // Route pour l'ajout de catégorie avec auth et upload de fichier
 router.post('/banner/add_banner', authMiddleware, upload.single('banners'), add_banner);
-
-//router.post('/banner/add_banner',authMiddleware, add_banner)
-
+router.get('/banner/get_banner/:productId', authMiddleware, get_product_banners);
+router.put('/banner/update_product_banner/:bannerId', authMiddleware,upload.single('banners'), update_product_banner);
+router.get('/home/banner/get_all_banners',get_banners)
 
 export default router;  //export the router

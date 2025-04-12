@@ -275,7 +275,7 @@ export const get_order_by_id = async (req, res) => {
         }
         const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
         const order = await customerOrderModel.findById(orderObjectId);
-        console.log(' order :>> ', order);
+       // console.log(' order :>> ', order);
         if (!order) {
             return responseReturn(res, 404, { message: "Order not found" });
         }
