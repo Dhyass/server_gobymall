@@ -176,17 +176,19 @@ io.on('connection', (socket) => {
     });
 });
 
-const port = process.env.PORT || 8080;
+const port = process.env.PORT;
 const allowedOrigins = [process.env.CLIENT_URL, process.env.CLIENT_URL2];
 
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin || allowedOrigins.includes(origin)) {
+            
             callback(null, true); // Autoriser la requête
         } else {
             callback(new Error('Not allowed by CORS')); // Rejeter la requête
         }
     },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Méthodes autorisées
     credentials: true, // Autoriser les credentials
 }));
 

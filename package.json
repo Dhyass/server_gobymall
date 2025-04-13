@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": "20.12.1"
+  },
   "scripts": {
     "server": " nodemon server.js",
     "build": "yarn babel src -d dist"
