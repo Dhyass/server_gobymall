@@ -58,7 +58,11 @@ export const admin_login = async (req, res) =>  {
                 id: admin.id,
                 role: admin.role 
             });
-            res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+            res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+                httpOnly: true,
+                secure: true, // OBLIGATOIRE pour un site en HTTPS
+                sameSite: 'None', // OBLIGATOIRE pour cross-origin
+            });
             return responseReturn(res, 200, {message: "Connexion réussie" , token});
         } else {
            return responseReturn(res, 404, { message: "Mot de passe incorrect" });
@@ -96,7 +100,12 @@ export const seller_login = async (req, res) => {
                 id: seller.id,
                 role: seller.role 
             });
-            res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+           // res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+           res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+            httpOnly: true,
+            secure: true, // OBLIGATOIRE pour un site en HTTPS
+            sameSite: 'None', // OBLIGATOIRE pour cross-origin
+        });
             return responseReturn(res, 200, { message: "Connexion réussie", token });
         } else {
             return responseReturn(res, 404, { message: "Mot de passe incorrect" });
@@ -184,7 +193,13 @@ export const seller_register= async(req, res) =>{
             id: newSeller.id,
             role: newSeller.role 
         });
-        res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+       // res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+
+       res.cookie('accessToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+        httpOnly: true,
+        secure: true, // OBLIGATOIRE pour un site en HTTPS
+        sameSite: 'None', // OBLIGATOIRE pour cross-origin
+    });
         
         //console.log(newSeller);
         responseReturn(res, 201, {message: " Votre  compte vendeur est bien créé" , token});
