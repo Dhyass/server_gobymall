@@ -4,6 +4,7 @@ import path from 'path';
 import {
     admin_order_status_update,
     create_payment,
+    delete_Order,
     get_admin_order_by_ID,
     get_admin_orders,
     get_dashboard_data,
@@ -13,7 +14,8 @@ import {
     get_seller_orders,
     order_confirm,
     place_order,
-    seller_order_status_update
+    seller_order_status_update,
+    updateOrderProductQuantity
 } from '../../controllers/ordersControllers/orderControllers.js';
 
 
@@ -49,6 +51,8 @@ router.get('/customer/get_dashboard_data/:customerId',get_dashboard_data)
 router.get('/order/get_order_by_id/:orderId', get_order_by_id);
 router.post('/order/create-payment', create_payment)
 router.get('/order/confirm/:orderId', order_confirm)
+router.put('/order/update_order/:orderId', updateOrderProductQuantity)
+router.delete('/order/delete_order/:orderId/:productId/:sellerId',delete_Order)
 
 router.get('/order/admin/get_admin_orders', get_admin_orders)
 router.get('/order/admin/get_admin_order/:orderId', get_admin_order_by_ID);

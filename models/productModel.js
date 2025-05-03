@@ -18,6 +18,20 @@ const productSchema = new Schema({
         }
     ],
     rating: { type: Number, default: 0 },
+    tags:{
+        type : Array,
+        default : []
+     },
+     variants:{
+        type : Array,
+        default : []
+     },
+    /* variants: [
+        {
+          name: { type: String },
+          options: [{ type: String }]
+        }
+      ]*/
 }, { timestamps: true }); // Ajout des timestamps
 
 productSchema.index(

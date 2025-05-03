@@ -93,7 +93,7 @@ export const get_price_range_latest_products = async (req, res) => {
 
 
 export const get_query_sort_products = async (req, res) => {
-    const parPage = 12;
+    const parPage = 25;
     req.query.parPage = parPage;
     //console.log('query req ', req.query);
 
@@ -114,12 +114,35 @@ export const get_query_sort_products = async (req, res) => {
         let products = await productModel.find(filters);
 
         // Filtrez les produits avec searchQuery
-        if (req.query.searchValue) {
+       /* if (req.query.searchValue) {
             const searchValue = req.query.searchValue.toUpperCase();
             products = products.filter(product => 
                 product.name.toUpperCase().indexOf(searchValue) > -1
             );
-        }
+        }*/
+/*
+            if (req.query.searchValue) {
+                const regex = new RegExp(req.query.searchValue, 'i'); // i = insensitive case
+            
+                filters.$or = [
+                    { name: regex },
+                    { tags: { $in: [regex] } },
+                    { description: regex },
+                    { category: regex }
+                ];
+            }
+            */
+
+            if (req.query.searchValue) {
+                const searchValue = req.query.searchValue.toUpperCase();
+                products = products.filter(product => 
+                    product.name.toUpperCase().includes(searchValue) ||
+                    (product.description && product.description.toUpperCase().includes(searchValue)) ||
+                    (product.category && product.category.toUpperCase().includes(searchValue)) ||
+                    (product.tags && product.tags.some(tag => tag.toUpperCase().includes(searchValue)))
+                );
+            }
+            
 
         // Appliquez le tri basé sur sortPrice
         if (req.query.sortPrice) {
@@ -400,7 +423,9 @@ export const getProductReviews = async (req, res) => {
 
 export const getProductReviews = async (req, res) => {
     const { productId } = req.params;
-    const { pageNumber = 1 } = req.query; // Page par défaut : 1
+    //console.log('productid ', productId);
+    const { pageNumber} = req.query; // Page par défaut : 1
+   // console.log('page number', pageNumber)
     const parPage = 5;
     const skip = (parseInt(pageNumber) - 1) * parPage;
 
@@ -414,16 +439,16 @@ export const getProductReviews = async (req, res) => {
         const totalReviews = await reviewModel.countDocuments({
             productId: mongoose.Types.ObjectId.createFromHexString(productId),
         });
-
-        if (totalReviews === 0) {
-            return responseReturn(res, 404, {
+     /*
+       if (totalReviews === 0) {
+            return responseReturn(res, 201, {
                 message: "Aucun avis trouvé",
                 rating_review: initializeRatingReview(), // Générer un tableau vide
                 totalReviews: 0,
                 reviews: [],
             });
-        }
-
+        }  
+    */
         // Récupération des statistiques de notation
         const getRating = await reviewModel.aggregate([
             {
@@ -448,7 +473,7 @@ export const getProductReviews = async (req, res) => {
             }
         });
 
-        console.log('rating_review ', rating_review);
+        //console.log('rating_review ', rating_review);
         // Récupérer les avis avec pagination
         const reviews = await reviewModel
             .find({
@@ -458,7 +483,7 @@ export const getProductReviews = async (req, res) => {
             .limit(parPage)
             .sort({ createdAt: -1 });
 
-            console.log('rewiews ', reviews);
+        //    console.log('rewiews ', reviews);
 
         // Retourner les avis avec les statistiques
         return responseReturn(res, 200, {
@@ -466,6 +491,7 @@ export const getProductReviews = async (req, res) => {
             rating_review,
             totalReviews,
             reviews,
+            productId
         });
     } catch (error) {
         console.error("Erreur lors de la récupération des avis :", error);

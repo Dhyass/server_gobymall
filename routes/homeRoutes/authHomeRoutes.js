@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { customer_login, customer_logout, customer_register } from '../../controllers/homeControllers/authHomeControllers.js';
+import { customer_login, customer_logout, customer_register, switch_to_seller, verifyCustomerAccount } from '../../controllers/homeControllers/authHomeControllers.js';
 
 
 
@@ -35,7 +35,8 @@ const storage = multer.diskStorage({
 router.post('/customer/customer_register', customer_register);
 router.post('/customer/customer_login', customer_login);
 router.post('/customer/logout', customer_logout )
-
+router.get('/customer/verify/:customerId/:otp', verifyCustomerAccount)
+router.get('/customer/switch-to-seller/:customerId', switch_to_seller)
 
 export default router;  //export the router
 //export default router; // export the router as a default export

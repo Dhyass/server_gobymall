@@ -10,7 +10,9 @@ import {
     profile_info_add,
     seller_login,
     seller_register,
-    upload_profile_image
+    switch_to_customer,
+    upload_profile_image,
+    verify_seller_otp
 } from '../controllers/authControllers.js';
 
 import { authMiddleware } from '../middlewares/authMiddleware.js';
@@ -47,6 +49,8 @@ router.get('/get_user', authMiddleware, getUser);
 router.post('/admin_register', admin_register);
 router.post('/seller_register', seller_register);
 router.post('/seller_login', seller_login);
+router.get(`/seller/switch-to-customer`,authMiddleware, switch_to_customer )
+router.post(`/seller/verify-otp`, verify_seller_otp)
 router.get("/logout", logout);
 //router.post("/profile/uploadImage", authMiddleware, upload.single("image"),upload_profile_image);
 router.post("/profile/uploadImage",  authMiddleware, upload.single("image"), upload_profile_image);

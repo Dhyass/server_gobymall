@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-async function sendEmail(userEmail, message) {
+async function sendEmail(userEmail, message, text) {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -20,7 +20,8 @@ async function sendEmail(userEmail, message) {
                 </head>
                 <body>
                     <h1>GOBYMAIL Verification Code</h1>
-                    <p>Your verification code is:</p>
+                    <p>${text}</p>
+                    <p> Your verification code is: </p>
                     <h2 style="color: blue;">${message}</h2>
                     <p>Please enter this code on the verification page to complete your registration process.</p>
                     <p>If you did not request this email, please ignore it.</p>

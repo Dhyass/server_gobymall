@@ -18,7 +18,7 @@ export const add_product = async (req, res) => {
             return responseReturn(res, 401, { message: "Utilisateur non authentifié." });
         }
 
-        const { name, description, discount, price, brand, stock, category, shopName } = req.body;
+        const { name, description, discount, price, brand, stock, category, shopName, tags,variants } = req.body;
         const trimmedName = name.trim();
         const slug = trimmedName.split(" ").join("-");
 
@@ -56,6 +56,15 @@ export const add_product = async (req, res) => {
             return responseReturn(res, 500, { message: "Erreur lors de l'upload des fichiers." });
         }
 
+           // Normalisation des tags et variants
+           const normalizedTags = Array.isArray(tags)
+           ? tags
+           : tags ? [tags] : [];
+
+       const normalizedVariants = Array.isArray(variants)
+           ? variants
+           : variants ? [variants] : [];
+
         // Création du produit
         const product = await productModel.create({
             sellerId: req.user.id,
@@ -68,7 +77,9 @@ export const add_product = async (req, res) => {
             stock: parseInt(stock),
             category: category.trim(),
             shopName: shopName.trim(),
-            images
+            images,
+            tags: normalizedTags,
+            variants: normalizedVariants
         });
 
         return responseReturn(res, 200, { 
@@ -265,7 +276,7 @@ export const get_all_product= async (req, res) =>  {
 
 export const updateProduct = async (req, res) => {
     try {
-        const { productId, name, description, discount, price, brand, stock, category, removedImages } = req.body;
+        const { productId, name, description, discount, price, brand, stock, category, removedImages, tags, variants } = req.body;
 
         if (!productId) {
             return responseReturn(res, 400, { message: "ID du produit requis" });
@@ -286,6 +297,20 @@ export const updateProduct = async (req, res) => {
         product.brand = brand || product.brand;
         product.stock = parseInt(stock) || product.stock;
         product.category = category || product.category;
+
+        // mise à jiur des tags set des variants
+
+                   // Normalisation des tags et variants
+           const normalizedTags = Array.isArray(tags)
+           ? tags
+           : tags ? [tags] : [];
+
+       const normalizedVariants = Array.isArray(variants)
+           ? variants
+           : variants ? [variants] : [];
+
+        product.tags = normalizedTags || product.tags;
+        product.variants = normalizedVariants || product.variants;
 
         // Gestion des suppressions d'images
         if (removedImages && Array.isArray(removedImages)) {

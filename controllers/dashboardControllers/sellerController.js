@@ -36,7 +36,7 @@ export const get_seller_request = async (req, res) =>  {
 
 export const get_seller_by_id = async (req, res) => {
     const { id } = req.params;
-    //process.stdout.write("req.params: " + JSON.stringify(req.params) + "\n");
+    process.stdout.write("req.params: " + JSON.stringify(req.params) + "\n");
 
     try {
         // Vérification de l'ID
@@ -105,7 +105,7 @@ export const get_active_sellers = async (req, res) => {
                 status: status,
                 $text : { $search: searchValue }
             }).skip(skipPage).limit(parPage).sort({createdAt:-1});
-            console.log(' sellers ', sellers)
+           // console.log(' sellers ', sellers)
             const total_active_sellers = await sellerModel.countDocuments({ status: status, $text : { $search: searchValue }});
             console.log(' total_active_sellers ', total_active_sellers)
             return responseReturn(res, 200, { sellers, total_active_sellers });

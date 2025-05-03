@@ -15,6 +15,10 @@ const customerSchema = new Schema({
         required: true, 
         select: false 
     },
+    otp: { 
+        type: String, 
+        default: "none" 
+    },
     method: { 
         type: String, 
         required: true 

@@ -579,8 +579,10 @@ export const update_product_quantity = async (req, res) => {
 export const update_product_quantity = async (req, res) => {
     const id = req.params.cardId; // ID du produit à modifier
     const state = req.body.state; // Nouveau stock
+    const newQuantity=req.body.newQuantity
     //console.log('id :', id);
     //console.log('state etat :', state);
+    //console.log('newQuantity', newQuantity)
 
     try {
         // Vérifiez si l'ID est valide
@@ -610,6 +612,13 @@ export const update_product_quantity = async (req, res) => {
             }
 
             await cardModel.findByIdAndUpdate(id, { quantity: quantity - 1 });
+        }
+
+        if (state==='update_cart') {
+            if (quantity > stock || quantity < 1) {
+                return responseReturn(res, 400, { message: `La quantité doit être comprise entre 1 et ${stock}.` });
+            }
+            await cardModel.findByIdAndUpdate(id, { quantity: newQuantity });
         }
 
         return responseReturn(res, 200, { message: "Quantité mise à jour avec succès." });

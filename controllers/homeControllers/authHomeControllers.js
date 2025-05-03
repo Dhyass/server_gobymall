@@ -6,9 +6,12 @@ import { v2 as cloudinary } from 'cloudinary';
 import debug from "debug";
 import sellerCustomerModel from '../../models/chats/sellerCustomerModel.js';
 import customerModel from '../../models/customerModel.js';
+import sellerModel from '../../models/sellerModel.js';
+import generateOtp from '../../utiles/otp_generator.js';
 import { responseReturn } from '../../utiles/response.js';
 import sendEmail from '../../utiles/smtp_function.js';
 import { createToken } from '../../utiles/tokenCreate.js';
+
 
 
 const log = debug("app:upload");
@@ -46,17 +49,26 @@ export const customer_register= async(req, res) =>{
         }
 
         const hashedPassword = await bcrypt.hash(req.body.password, 10); // Hachage du mot de passe avec bcrypt
+        
+           // generate OTP
+        const otp = generateOtp();
 
         const newCustomer = new customerModel({
             name: req.body.name.trim(),
             email: req.body.email.trim(),
             password: hashedPassword, // Stockage du mot de passe haché
             method :"manual",
+            otp : otp
         });
 
         await newCustomer.save();
+        
+                    // Envoyer OTP par email
+            //await sendEmail(customer.email, newOtp);
+        const text = "Bienvenue chez GOBYMAIL, Saisissez ce code pour valider votre compte"
+           
+        sendEmail(newCustomer.email, otp, text);
 
-        sendEmail(newCustomer.email, "Bienvenue chez GOBYMAIL", "Vous êtes désormais inscrit");
        await sellerCustomerModel.create({
             myId : newCustomer.id,
         })
@@ -65,21 +77,22 @@ export const customer_register= async(req, res) =>{
             id: newCustomer.id,
             name : newCustomer.name,
             email : newCustomer.email,
-            method : newCustomer.method 
+            method : newCustomer.method,
+            otp: newCustomer.otp
         });
         res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
         
         //console.log(newSeller);
-        return responseReturn(res, 201, {message: " Votre  compte client est bien créé" , token});
+        return responseReturn(res, 201, {message: " Votre  compte client est bien créé" , token, newCustomerId : newCustomer.id});
 
        
     } catch (error) {
-        return   responseReturn(res, 500, { status: false,message: "Erreur Interne du serveur" });
+        return   responseReturn(res, 500, { status: false, message: "Erreur Interne du serveur" });
         
     }
     
 }
-
+/*
 export const customer_login = async (req, res) => {
     const { email, password } = req.body;
     
@@ -102,24 +115,33 @@ export const customer_login = async (req, res) => {
         }
 
         const match = await bcrypt.compare(password, customer.password);
+        //customer.verification = true;
 
-        if (match) {
-             const token = await createToken({
-            id: customer.id,
-            name : customer.name,
-            email : customer.email,
-            method : customer.method 
-        });
-        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
-            return responseReturn(res, 200, { message: "Connexion réussie", token });
+
+        if (customer.otp===null) {
+            if (match) {
+                const token = await createToken({
+               id: customer.id,
+               name : customer.name,
+               email : customer.email,
+               method : customer.method 
+           });
+           res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+               return responseReturn(res, 200, { message: "Connexion réussie", token });
+           } else {
+               return responseReturn(res, 404, { message: "Mot de passe incorrect" });
+           } 
         } else {
-            return responseReturn(res, 404, { message: "Mot de passe incorrect" });
+            console.log('newCustomerId ', customer.id)
+            return responseReturn(res, 204, { message: "votre compte n'est pas verifié" , newCustomerId : customer.id});
         }
+
     } catch (error) {
+        console.error('erreur ', error.message)
         return responseReturn(res, 500, { message: "Erreur interne du serveur" });
     }
 };
-
+*/
 export const customer_logouts = async (req, res) => {
     /// console.log("Début de la fonction logout");
      //process.stdout.write("Début de la fonction logout : " + "\n");
@@ -155,5 +177,212 @@ export const customer_logouts = async (req, res) => {
         return res.status(500).json({ success: false, error: error.message });
     }
 };
+
+/*
+export const verifyCustomerAccount = async (req, res) => {
+    const { customerId, otp } = req.params;
+
+    try {
+        const customer = await customerModel.findById(customerId);
+
+        console.log('customer ', customer)
+
+        if (!customer) {
+           // return res.status(404).json({ status: false, message: "Client non trouvé" });
+            return responseReturn(res, 404, { message: "Client non trouvé"  });
+        }
+
+        if (customer.verification) {
+           // return res.status(400).json({ status: false, message: "Compte déjà vérifié" });
+            return responseReturn(res, 400, {message: "Compte déjà vérifié" });
+        }
+
+        if (customer.otp !== otp) {
+            //return res.status(400).json({ status: false, message: "Code OTP invalide" });
+            return responseReturn(res, 400, {message: "Code OTP invalide" });
+        }
+
+        customer.verification = true;
+        customer.otp = null;
+        await customer.save();
+
+     //   const token = jwt.sign({id: customer._id,email: customer.email,userType: "customer"
+      //  }, process.env.JWT_SECRET_KEY, { expiresIn: "21d" });
+
+        const token = await createToken({
+            id: customer.id,
+            name : customer.name,
+            email : customer.email,
+            method : customer.method,
+            otp: customer.otp
+        });
+        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+
+        const { password, otp: _, __v, ...safeData } = customer._doc;
+
+
+        return responseReturn(res, 200, {message: "Compte vérifié avec succès", token});
+
+    } catch (error) {
+        console.error("Erreur vérification client :", error);
+        return res.status(500).json({ status: false, message: "Erreur interne du serveur" });
+    }
+};
+*/
+
+
+export const customer_login = async (req, res) => {
+    const { email, password } = req.body;
+    
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+
+    if (!emailRegex.test(email)) {
+        return responseReturn(res, 400, { message: "Email invalide" });
+    }
+
+    if (password.length < 8) {
+        return responseReturn(res, 400, { message: "Le mot de passe doit comporter au moins 8 caractères" });
+    }
+
+    try {
+        const customer = await customerModel.findOne({ email }).select('+password');
+        if (!customer) {
+            return responseReturn(res, 404, { message: "Compte introuvable" });
+        }
+
+        const match = await bcrypt.compare(password, customer.password);
+        if (!match) {
+            return responseReturn(res, 401, { message: "Mot de passe incorrect" });
+        }
+
+        if (customer.otp!==null) {
+            console.log('old otp ',customer.otp)
+            // Générer un nouvel OTP
+            const newOtp = generateOtp();
+            customer.otp = newOtp;
+            await customer.save();
+
+            // Envoyer OTP par email
+            //await sendEmail(customer.email, newOtp);
+            const text = "Voici ci-dessous votre nouveau code de verification, Saisissez ce code pour valider votre compte"
+            sendEmail(customer.email, newOtp, text);
+
+        //    console.log('customer id ', customer.id)
+
+            return responseReturn(res, 403, { 
+                message: "Votre compte n'est pas vérifié. Un nouveau code vous a été envoyé.", 
+                newCustomerId: customer.id
+            });
+        }
+
+        // Compte vérifié : connexion normale
+        const token = await createToken({
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            method: customer.method
+        });
+        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+
+        const seller = await sellerModel.findOne({ email }).select('+password');
+        let roleSecond;
+
+        if (seller) {
+            roleSecond = seller.role
+        }
+
+        return responseReturn(res, 200, { message: "Connexion réussie", token, roleSecond});
+
+    } catch (error) {
+        console.error('Erreur connexion client :', error.message);
+        return responseReturn(res, 500, { message: "Erreur interne du serveur" });
+    }
+};
+
+
+export const verifyCustomerAccount = async (req, res) => {
+    const { customerId, otp } = req.params;
+
+    try {
+        const customer = await customerModel.findById(customerId);
+
+        if (!customer) {
+            return responseReturn(res, 404, { message: "Client non trouvé" });
+        }
+
+        if (customer.otp===null) {
+            return responseReturn(res, 400, { message: "Compte déjà vérifié" });
+        }
+
+        if (customer.otp !== otp) {
+            return responseReturn(res, 400, { message: "Code OTP invalide" });
+        }
+
+        // Vérification réussie
+       // customer.verification = true;
+        customer.otp = null;
+        await customer.save();
+
+        const token = await createToken({
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            method: customer.method
+        });
+        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+
+        return responseReturn(res, 200, { message: "Compte vérifié avec succès", token });
+
+    } catch (error) {
+        console.error("Erreur vérification client :", error);
+        return responseReturn(res, 500, { message: "Erreur interne du serveur" });
+    }
+};
+
+
+// /api/customer/switch-to-seller
+export const switch_to_seller = async (req, res) => {
+
+    const {customerId} = req.params
+   // console.log('params', req.params)
+
+    try {
+      const customer = await customerModel.findById(customerId); // req.user vient du middleware JWT
+
+      if (!customer) {
+        return res.status(404).json({ message: "Compte associé introuvable." });
+      }
+  
+      const seller = await sellerModel.findOne({email : customer.email});
+      if (!seller) {
+        return res.status(404).json({ message: "Compte vendeur associé introuvable." });
+      }
+  
+      // Génère le token vendeur
+      const sellerToken = await createToken({
+        id: seller._id,
+        role: seller.role,
+      });
+  
+      // Place le token vendeur en cookie sécurisé
+      res.cookie("accessToken", sellerToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+        expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+      });
+  
+      // Redirige vers le frontend vendeur
+      res.json({
+        success: true,
+        redirect: `${process.env.CLIENT_URL}/seller/dashboard`,
+        
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Erreur serveur lors du switch." });
+    }
+  };
+  
 
 

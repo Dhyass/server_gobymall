@@ -6,6 +6,7 @@ import authOrderModel from "../../models/authOrderModel.js";
 import cardModel from "../../models/cardModel.js";
 import customerOrderModel from "../../models/customerOrderModel.js";
 import myShopWalletSchemaModel from "../../models/myShopWalletModel.js";
+import productModel from "../../models/productModel.js";
 import sellerWalletModel from "../../models/sellerWalletModel.js";
 import { responseReturn } from "../../utiles/response.js";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // Utilise la clé depuis l'environnement.
@@ -60,7 +61,7 @@ export const place_order = async (req, res)  => {
     let authOrderData = []
     let cardId = []
     const tempDate = moment(Date.now()).format('LLL')
-   console.log('order items :>> ', items);
+   //console.log('order items :>> ', items);
 
   let customerOrderProducts = []
 
@@ -118,25 +119,14 @@ export const place_order = async (req, res)  => {
         }
     
         try {
-            /*
-            console.log({
-                orderId: order.id,
-                sellerId: sellerId,
-                products: storeProduct,
-                price: prix,
-                payment_status: 'unpaid',
-                shippingInfo: 'Rabat, 17 rue des Olives, 10000',
-                delivery_status: 'pending',
-                date: tempDate,
-            });
-            */
+           
                 authOrderData.push({
                 orderId: order.id,
                 sellerId: sellerId,
                 products: storeProduct,
                 price: prix,
                 payment_status: 'unpaid',
-                shippingInfo: 'Rabat, 17 rue des Olives, 10000',
+                shippingInfo : shippingInfo,
                 delivery_status: 'pending',
                 date: tempDate,
             });
@@ -167,6 +157,7 @@ export const place_order = async (req, res)  => {
         const paymentResult = await payment_check(order.id);
         if (!paymentResult.success) {
             console.log(paymentResult.message);
+            return responseReturn(res, 404, {message: paymentResult.message})
         }
     }, 5000);
 
@@ -275,7 +266,7 @@ export const get_order_by_id = async (req, res) => {
         }
         const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
         const order = await customerOrderModel.findById(orderObjectId);
-       // console.log(' order :>> ', order);
+      // console.log(' order :>> ', order);
         if (!order) {
             return responseReturn(res, 404, { message: "Order not found" });
         }
@@ -450,34 +441,7 @@ export const seller_order_status_update = async(req, res)=>{
     return responseReturn(res, 500, { message: "Error updating order status" });
    }
 }
-/*
-export const create_payment = async (req, res) => {
-    const { price } = req.body;
 
-    console.log('Price received in request:', price);
-
-    // Validate the price
-    if (!price || isNaN(price) || price <= 0) {
-        return responseReturn(res, 400, { message: "Invalid price provided" });
-    }
-
-    try {
-        const payment = await stripe.paymentIntents.create({
-            amount: Math.round(price * 100), // Convert to smallest currency unit
-            currency: 'usd',
-            automatic_payment_methods: {
-                enabled: true,
-            },
-        });
-
-        console.log('Payment Intent created:', payment);
-        return responseReturn(res, 200, { clientSecret: payment.client_secret });
-    } catch (error) {
-        console.error('Error creating payment intent:', error);
-        return responseReturn(res, 500, { message: "Error creating payment" });
-    }
-};
-*/
 
 export const create_payment = async (req, res) => {
     const { price } = req.body;
@@ -504,12 +468,15 @@ export const create_payment = async (req, res) => {
         res.status(500).json({ message: "Error creating payment" });
     }
 };
-
+/*
 
 export const order_confirm = async(req, res)=>{
     const {orderId} = req.params;
     //console.log('order id ', orderId);
     try {
+
+
+
         await customerOrderModel.findByIdAndUpdate(orderId, 
             {
                 payment_status:'paid',
@@ -523,7 +490,11 @@ export const order_confirm = async(req, res)=>{
                 payment_status:'paid',
                 delivery_status:'pending'
             })
+
+
             const customerOrder = await customerOrderModel.findById(orderId)
+           // console.log('customer order ', customerOrder)
+
             const authOrder = await authOrderModel.find({orderId : orderObjectId})
             const time = moment(Date.now()).format('l')
             const splitTime = time.split('/')
@@ -533,6 +504,19 @@ export const order_confirm = async(req, res)=>{
                 month : splitTime[0],
                 year : splitTime[2]
             })
+            
+            let product = {}
+
+            if (customerOrder.payment_status === 'paid') {
+                for (let index = 0; index < customerOrder.products.length; index++) {
+                    product = customerOrder.products[index]
+                    const newQuantity = product.stock-product.quantity
+                    console.log("new quantity ", newQuantity)
+                    product = await productModel.findByIdAndUpdate(product._id, {
+                        quantity :  newQuantity
+                    })
+                }    
+            }
 
             for (let i = 0; i < authOrder.length; i++) {
                 await sellerWalletModel.create({
@@ -549,4 +533,365 @@ export const order_confirm = async(req, res)=>{
         console.log('error :>> ', error);
         return responseReturn(res, 500, { message: "Error confirm order" });
     }
+}*/
+
+export const order_confirm = async (req, res) => {
+    const { orderId } = req.params;
+
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+        return responseReturn(res, 400, { message: "ID invalide" });
+    }
+
+    try {
+        const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
+
+        // Mettre à jour les statuts
+        await customerOrderModel.findByIdAndUpdate(orderId, {
+            payment_status: 'paid',
+            delivery_status: 'pending'
+        });
+
+        await authOrderModel.updateMany({ orderId: orderObjectId }, {
+            payment_status: 'paid',
+            delivery_status: 'pending'
+        });
+
+        const customerOrder = await customerOrderModel.findById(orderId);
+        const authOrder = await authOrderModel.find({ orderId: orderObjectId });
+
+        // Créer un enregistrement dans le wallet global
+        const time = moment().format('l').split('/');
+        await myShopWalletSchemaModel.create({
+            amount: customerOrder.price,
+            month: time[0],
+            year: time[2]
+        });
+
+        // ✅ Mettre à jour la quantité des produits
+        if (customerOrder.payment_status === 'paid') {
+            for (let item of customerOrder.products) {
+                const productData = await productModel.findById(item._id);
+
+               // console.log('pduct Data :>> ', productData);
+
+
+                if (!productData) continue;
+
+                const newQuantity = productData.stock - item.quantity;
+
+              //  console.log('new Quantity :>> ', newQuantity);
+
+                await productModel.findByIdAndUpdate(item._id, {
+                    stock: newQuantity > 0 ? newQuantity : 0
+                });
+            }
+        }
+
+        // Crédits pour chaque vendeur
+        for (let i = 0; i < authOrder.length; i++) {
+            await sellerWalletModel.create({
+                sellerId: authOrder[i].sellerId.toString(),
+                amount: authOrder[i].price,
+                month: time[0],
+                year: time[2]
+            });
+        }
+
+        return responseReturn(res, 200, { message: 'Commande confirmée avec succès' });
+
+    } catch (error) {
+        console.log('Erreur lors de la confirmation de commande :', error);
+        return responseReturn(res, 500, { message: "Erreur lors de la confirmation de la commande" });
+    }
+};
+
+
+/*
+    dans le order j'ai products type array, qui contient pluisieurs produits, et je veux pouvoir motifier la quantité du produit
+    en utilisant son id (productId).
+    Par ailleurs, lorsqu'un utilissateur place une commande, on regroupe les produits selon les vendeurs, et le prix total de produits 
+    du vendeur commandés. essaye de corriger le code
+*/
+/*
+export const updateOrderProductQuantity = async (req, res) => {
+    const orderId = req.params.orderId;
+    const productId = req.body.productId;
+    const newQuantity = req.body.newQuantity;
+    const sellerId = req.body.sellerId
+
+    console.log('orderId  :', orderId );
+    console.log('productId  :', productId );
+    console.log('newQuantity :', newQuantity);
+    console.log('sellerId :', sellerId)
+
+    try {
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return responseReturn(res, 400, { message: "ID invalide" });
+        }
+
+        const order = await customerOrderModel.findById(orderId);
+
+        const orderAuth = await authOrderModel.findById(orderId);
+
+        if (!order || !orderAuth) {
+            return responseReturn(res, 404, { message: "Commande non trouvée." });
+        }
+
+        const productToUpdate = order.products.find(p => p._id.toString() === productId);
+
+        if (!productToUpdate) {
+            return responseReturn(res, 404, { message: "Produit non trouvé dans la commande." });
+        }
+
+        if (newQuantity < 1 || newQuantity > productToUpdate.stock) {
+            return responseReturn(res, 400, {
+                message: `La quantité doit être comprise entre 1 et ${productToUpdate.stock}.`
+            });
+        }
+
+        let prixToUpdate =0;
+        let prcieAuthToUpdate =0;
+        const priceDiscounted = (productToUpdate.price-(productToUpdate.price*productToUpdate.discount/100))
+
+        if (newQuantity>productToUpdate.quantity) {
+
+            prixToUpdate = order.price + (newQuantity-productToUpdate.quantity)*priceDiscounted
+            prcieAuthToUpdate = orderAuth.price + (newQuantity-productToUpdate.quantity)*priceDiscounted
+        } 
+        if (newQuantity<productToUpdate.quantity) {
+            prixToUpdate = order.price - (productToUpdate.quantity-newQuantity)*priceDiscounted
+            prcieAuthToUpdate = orderAuth.price - (productToUpdate.quantity-newQuantity)*priceDiscounted
+        }
+
+        console.log('prix to update', prixToUpdate)
+        console.log('price auth order update', prcieAuthToUpdate )
+
+        if (order.payment_status==='unpaid') {
+            
+            await customerOrderModel.updateOne(
+                { _id: orderId, "products._id": productId },
+                {
+                    $set: {
+                        "products.$.quantity": newQuantity
+                    }
+                },
+                
+            );
+
+            await customerOrderModel.findByIdAndUpdate(orderId, {
+                price: parseFloat(prixToUpdate).toFixed(2)
+            }   
+            )
+
+            
+
+            await authOrderModel.updateOne(
+                { orderId: orderId, "products._id": productId },
+                {
+                    $set: {
+                        "products.$.quantity": newQuantity
+                    },
+                },
+                {
+                    $set:{
+                        "price":parseFloat(prcieAuthToUpdate).toFixed(2)
+                    }
+                }
+              
+            );
+
+         
+        }
+
+        return responseReturn(res, 200, { message: "Quantité mise à jour avec succès." });
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour :", error.message);
+        return responseReturn(res, 500, { message: "Erreur interne du serveur." });
+    }
+};
+*/
+
+export const updateOrderProductQuantity = async (req, res) => {
+    const orderId = req.params.orderId;
+    const productId = req.body.productId;
+    const newQuantity = req.body.newQuantity;
+    const sellerId = req.body.sellerId;
+    /*
+    console.log('orderId  :', orderId);
+    console.log('productId  :', productId);
+    console.log('newQuantity :', newQuantity);
+    console.log('sellerId :', sellerId);*/
+
+    try {
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return responseReturn(res, 400, { message: "ID invalide" });
+        }
+
+        const order = await customerOrderModel.findById(orderId);
+        const authOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+       // console.log('authOrder :', authOrder)
+
+        if (!order || !authOrder) {
+            return responseReturn(res, 404, { message: "Commande non trouvée." });
+        }
+
+        const productToUpdate = order.products.find(p => p._id.toString() === productId);
+        const authProductToUpdate = authOrder.products.find(p => p._id.toString() === productId);
+
+        if (!productToUpdate || !authProductToUpdate) {
+            return responseReturn(res, 404, { message: "Produit non trouvé dans la commande." });
+        }
+
+        if (newQuantity < 1 || newQuantity > productToUpdate.stock) {
+            return responseReturn(res, 400, {
+                message: `La quantité doit être comprise entre 1 et ${productToUpdate.stock}.`
+            });
+        }
+
+        // Calcul du nouveau prix
+        const priceDiscounted = productToUpdate.price - (productToUpdate.price * productToUpdate.discount / 100);
+        const delta = newQuantity - productToUpdate.quantity;
+
+        const updatedOrderPrice = order.price + (delta * priceDiscounted);
+        const updatedAuthPrice = authOrder.price + (delta * priceDiscounted);
+
+       // console.log('updatedAuthPrice :', updatedAuthPrice)
+
+        // Mise à jour uniquement si la commande est impayée
+        if (order.payment_status === 'unpaid') {
+            // Met à jour la quantité dans la commande principale
+            await customerOrderModel.updateOne(
+                { _id: orderId, "products._id": productId },
+                {
+                    $set: {
+                        "products.$.quantity": newQuantity
+                    }
+                }
+            );
+
+            // Met à jour le prix global de la commande principale
+            await customerOrderModel.findByIdAndUpdate(orderId, {
+                price: parseFloat(updatedOrderPrice).toFixed(2)
+            });
+
+            // Met à jour la quantité dans la commande par vendeur
+           await authOrderModel.updateOne(
+                { orderId, sellerId, "products._id": productId },
+                {
+                    $set: {
+                        "products.$.quantity": newQuantity,
+                        //price : parseFloat(updatedAuthPrice).toFixed(2)
+                    }
+                }
+            );
+            await authOrderModel.updateOne(
+                { orderId, sellerId,},
+                {
+                    $set: {
+                        price : parseFloat(updatedAuthPrice).toFixed(2)
+                    }
+                }
+            );
+
+        }
+
+        return responseReturn(res, 200, { message: "Quantité mise à jour avec succès." });
+    } catch (error) {
+        //console.error("Erreur lors de la mise à jour :", error.message);
+        return responseReturn(res, 500, { message: "Erreur interne du serveur." });
+    }
+};
+
+
+/*
+je veux maintenant pourvoir suprimer un produit dans une commande , de (customerOrderModel et de authOrderModel ),
+lorsque tous les produits de la commande sont supprimés; la commande (order global ou order specifique au vendeur) est 
+automatiquement suprimée 
+
+export const delete_Order = async(req, res)=>{
+    const orderId = req.params.orderId
+    const productId =req.params.productId
+    const sellerid = req.body.sellerId
 }
+*/  
+
+
+export const delete_Order = async (req, res) => {
+    const orderId = req.params.orderId;
+    const productId = req.params.productId;
+    const sellerId = req.params.sellerId;
+
+    try {
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return responseReturn(res, 400, { message: "ID de commande invalide." });
+        }
+
+        const order = await customerOrderModel.findById(orderId);
+        const authOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+        if (!order || !authOrder) {
+            return responseReturn(res, 404, { message: "Commande non trouvée." });
+        }
+
+        // Vérifie si le produit existe dans les deux modèles
+        const productInOrder = order.products.find(p => p._id.toString() === productId);
+        const productInAuthOrder = authOrder.products.find(p => p._id.toString() === productId);
+
+        if (!productInOrder || !productInAuthOrder) {
+            return responseReturn(res, 404, { message: "Produit non trouvé dans la commande." });
+        }
+
+        // Calcule le montant à soustraire
+        const priceDiscounted = productInOrder.price - (productInOrder.price * productInOrder.discount / 100);
+        const totalReduction = productInOrder.quantity * priceDiscounted;
+
+        // Supprimer le produit de customerOrderModel
+        const orderUpdateResult = await customerOrderModel.updateOne(
+            { _id: orderId },
+            {
+                $pull: { products: { _id: productId } },
+                $inc: { price: -totalReduction }
+            }
+        );
+
+        // Supprimer le produit de authOrderModel
+        const authUpdateResult = await authOrderModel.updateOne(
+            { orderId, sellerId },
+            {
+                $pull: { products: { _id: productId } },
+                $inc: { price: -totalReduction }
+            }
+        );
+
+        // Vérification que les suppressions ont bien été appliquées
+        const updatedOrder = await customerOrderModel.findById(orderId);
+        const updatedAuthOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+        let orderDeleted = false;
+        let authOrderDeleted = false;
+
+        if (updatedOrder?.products.length === 0) {
+            await customerOrderModel.findByIdAndDelete(orderId);
+            orderDeleted = true;
+        }
+
+        if (updatedAuthOrder?.products.length === 0) {
+            await authOrderModel.deleteOne({ orderId, sellerId });
+            authOrderDeleted = true;
+        }
+
+        return responseReturn(res, 200, {
+            message: orderDeleted
+                ? "Produit supprimé. La commande a été supprimée car elle ne contenait plus aucun produit."
+                : "Produit supprimé avec succès.",
+            orderDeleted,
+            authOrderDeleted,
+            productId
+        });
+
+    } catch (error) {
+        console.error("Erreur lors de la suppression du produit :", error.message);
+        return responseReturn(res, 500, { message: "Erreur serveur." });
+    }
+};

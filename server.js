@@ -214,8 +214,6 @@ app.use('/api', bannerRoutes);
 // Route d'accueil
 app.get('/', (req, res) => res.send(
     'Hello, world!',
-    process.env.CLIENT_URL,
-    process.env.CLIENT_URL2
 ));
 
 
