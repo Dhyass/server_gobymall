@@ -1,9 +1,17 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { customer_login, customer_logout, customer_register, switch_to_seller, verifyCustomerAccount } from '../../controllers/homeControllers/authHomeControllers.js';
-
-
+import {
+    create_seller_account,
+    customer_login,
+    customer_logout,
+    customer_register,
+    reset_customer_password,
+    send_customer_reset_otp,
+    switch_to_seller,
+    verify_customer_reset_otp,
+    verifyCustomerAccount
+} from '../../controllers/homeControllers/authHomeControllers.js';
 
 
 
@@ -37,6 +45,10 @@ router.post('/customer/customer_login', customer_login);
 router.post('/customer/logout', customer_logout )
 router.get('/customer/verify/:customerId/:otp', verifyCustomerAccount)
 router.get('/customer/switch-to-seller/:customerId', switch_to_seller)
+router.post(`/customer/send-customer-reset-otp`, send_customer_reset_otp)
+router.post(`/customer/verify-customer-reset-otp`, verify_customer_reset_otp)
+router.post(`/customer/reset-customer-password`, reset_customer_password)
+router.post(`/customer/createSellerAccount`, upload.single('image'), create_seller_account)
 
 export default router;  //export the router
 //export default router; // export the router as a default export

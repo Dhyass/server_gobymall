@@ -9,6 +9,7 @@ import { dbConnect } from './utiles/db.js';
 // Importer les routes
 import authRoutes from './routes/authRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import contactMessageRoutes from './routes/contactMessageRoutes.js';
 import bannerRoutes from './routes/dashboardRoutes/bannerRoutes.js';
 import categoryRoutes from './routes/dashboardRoutes/categoryRoutes.js';
 import dashboardIndexRoutes from './routes/dashboardRoutes/dashboardIndexRoutes.js';
@@ -210,6 +211,7 @@ app.use('/api', orderRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', dashboardIndexRoutes)
 app.use('/api', bannerRoutes);
+app.use('/api', contactMessageRoutes);
 
 // Route d'accueil
 app.get('/', (req, res) => res.send(

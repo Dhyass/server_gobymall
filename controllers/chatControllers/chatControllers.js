@@ -130,6 +130,86 @@ export const add_customer_friend = async (req, res) => {
 
 }
 
+
+export const customer_message_to_seller = async (req, res) => {
+  const {
+    customerId,
+    sellerId,
+    message,
+    senderName,
+    images = [],
+    messageType = 'text',
+    productInfo = null
+  } = req.body;
+console.log('req body', req.body)
+  try {
+    // 1. Enregistrement du message
+    const myMessage = new sellerCustomerMessageModel({
+      senderName: senderName,
+      senderId: customerId,
+      receiverId: sellerId,
+      message,
+      images,
+      messageType,
+      productInfo
+    });
+    await myMessage.save();
+
+    // 2. Création de la relation amis si elle n'existe pas encore
+
+    // Côté client
+    let clientData = await sellerCustomerModel.findOne({ myId: customerId });
+    if (!clientData) {
+      clientData = await sellerCustomerModel.create({
+        myId: customerId,
+        myFriends: [{ fdId: sellerId }]
+      });
+    } else {
+      let exists = clientData.myFriends.find(f => f.fdId === sellerId);
+      if (!exists) {
+        clientData.myFriends.unshift({ fdId: sellerId });
+      } else {
+        const index = clientData.myFriends.findIndex(f => f.fdId === sellerId);
+        for (let i = index; i > 0; i--) {
+          const temp = clientData.myFriends[i];
+          clientData.myFriends[i] = clientData.myFriends[i - 1];
+          clientData.myFriends[i - 1] = temp;
+        }
+      }
+      await clientData.save();
+    }
+
+    // Côté vendeur
+    let sellerData = await sellerCustomerModel.findOne({ myId: sellerId });
+    if (!sellerData) {
+      sellerData = await sellerCustomerModel.create({
+        myId: sellerId,
+        myFriends: [{ fdId: customerId }]
+      });
+    } else {
+      let exists = sellerData.myFriends.find(f => f.fdId === customerId);
+      if (!exists) {
+        sellerData.myFriends.unshift({ fdId: customerId });
+      } else {
+        const index = sellerData.myFriends.findIndex(f => f.fdId === customerId);
+        for (let i = index; i > 0; i--) {
+          const temp = sellerData.myFriends[i];
+          sellerData.myFriends[i] = sellerData.myFriends[i - 1];
+          sellerData.myFriends[i - 1] = temp;
+        }
+      }
+      await sellerData.save();
+    }
+
+    return responseReturn(res, 200, { message: 'Message envoyé avec succès' }, myMessage);
+
+  } catch (error) {
+    console.error("Erreur dans customer_message_to_seller:", error);
+    return responseReturn(res, 500, { message: "Erreur interne du serveur" });
+  }
+};
+
+/*
 export const customer_message_to_seller = async (req, res) => {
    // console.log('req .body:', req.body);
    const {customerId,sellerId,message,name} = req.body;
@@ -174,6 +254,8 @@ export const customer_message_to_seller = async (req, res) => {
     return responseReturn( res, 500, {message:"Internal Server Error"});
    }
 }
+
+*/
 
 export const getCustomers = async (req, res) => {
     //console.log('req params:', req.params);
@@ -241,6 +323,7 @@ export const get_customer_messages = async (req, res) => {
     }
 }
 
+/*
 export const seller_message_to_customer = async (req, res) => {
     // console.log('req .body:', req.body);
     const {customerId,sellerId,message,name} = req.body;
@@ -285,8 +368,88 @@ export const seller_message_to_customer = async (req, res) => {
      return responseReturn( res, 500, {message:"Internal Server Error"});
     }
  }
+*/
+export const seller_message_to_customer = async (req, res) => {
+    const {
+      customerId,
+      sellerId,
+      message,
+      senderName,
+      images = [],
+      messageType = 'text',
+      productInfo = null
+    } = req.body;
+  //console.log('req body', req.body)
+    try {
+      // 1. Enregistrement du message
+      const myMessage = new sellerCustomerMessageModel({
+        senderName: senderName,
+        senderId: sellerId ,
+        receiverId: customerId,
+        message,
+        images,
+        messageType,
+        productInfo
+      });
+      await myMessage.save();
+  
+      // 2. Création de la relation amis si elle n'existe pas encore
+  
+      // Côté client
+      // clientData
+      let clientData = await sellerCustomerModel.findOne({ myId: customerId });
+      if (!clientData) {
+        clientData = await sellerCustomerModel.create({
+          myId: customerId,
+          myFriends: [{ fdId: sellerId }]
+        });
+      } else {
+        let exists = clientData.myFriends.find(f => f.fdId === sellerId);
+        if (!exists) {
+          clientData.myFriends.unshift({ fdId: sellerId });
+        } else {
+          const index = clientData.myFriends.findIndex(f => f.fdId === sellerId);
+          for (let i = index; i > 0; i--) {
+            const temp = clientData.myFriends[i];
+            clientData.myFriends[i] = clientData.myFriends[i - 1];
+            clientData.myFriends[i - 1] = temp;
+          }
+        }
+        await clientData.save();
+      }
+  
+      // Côté vendeur
+      let sellerData = await sellerCustomerModel.findOne({ myId: sellerId });
+      if (!sellerData) {
+        sellerData = await sellerCustomerModel.create({
+          myId: sellerId,
+          myFriends: [{ fdId: customerId }]
+        });
+      } else {
+        let exists = sellerData.myFriends.find(f => f.fdId === customerId);
+        if (!exists) {
+          sellerData.myFriends.unshift({ fdId: customerId });
+        } else {
+          const index = sellerData.myFriends.findIndex(f => f.fdId === customerId);
+          for (let i = index; i > 0; i--) {
+            const temp = sellerData.myFriends[i];
+            sellerData.myFriends[i] = sellerData.myFriends[i - 1];
+            sellerData.myFriends[i - 1] = temp;
+          }
+        }
+        await sellerData.save();
+      }
+  
+      return responseReturn(res, 200, { message: 'Message envoyé avec succès' }, myMessage);
+  
+    } catch (error) {
+      console.error("Erreur dans customer_message_to_seller:", error);
+      return responseReturn(res, 500, { message: "Erreur interne du serveur" });
+    }
+  };
 
- export const getSellers = async (req, res) => {
+
+export const getSellers = async (req, res) => {
     try {
         const sellers = await sellerModel.find();
         //console.log(' sellers:', sellers);
@@ -317,6 +480,7 @@ export const admin_message_to_seller = async (req, res) => {
     }
     
  }
+
  export const seller_message_to_admin = async (req, res) => {
    // console.log('req .body:', req.body);
     const {sellerId,adminId, message,name} = req.body;
@@ -337,6 +501,7 @@ export const admin_message_to_seller = async (req, res) => {
     }
     
  }
+
  //get_admin_messages
  export const get_admin_messages = async (req, res) => {
     //console.log('req params:', req.params);

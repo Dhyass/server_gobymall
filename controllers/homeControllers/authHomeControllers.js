@@ -4,6 +4,7 @@
 import bcrypt from 'bcrypt';
 import { v2 as cloudinary } from 'cloudinary';
 import debug from "debug";
+import mongoose from 'mongoose';
 import sellerCustomerModel from '../../models/chats/sellerCustomerModel.js';
 import customerModel from '../../models/customerModel.js';
 import sellerModel from '../../models/sellerModel.js';
@@ -290,7 +291,7 @@ export const customer_login = async (req, res) => {
         if (seller) {
             roleSecond = seller.role
         }
-
+        console.log('second role', roleSecond)
         return responseReturn(res, 200, { message: "Connexion réussie", token, roleSecond});
 
     } catch (error) {
@@ -383,6 +384,435 @@ export const switch_to_seller = async (req, res) => {
       res.status(500).json({ message: "Erreur serveur lors du switch." });
     }
   };
+
+
+
+export const send_customer_reset_otp = async (req, res) => {
+    const { email } = req.body;
   
+    try {
+      
+
+      const customer = await customerModel.findOne({email})
+
+      if (!customer) {
+        return responseReturn(res, 404, { message: "Aucun compte avec cet email." });
+      }
+  
+      const otp = generateOtp();
+
+      customer.otp = otp;
+      await customer.save();
+  
+      const text = "Voici votre code de réinitialisation de mot de passe pour GOBYMAIL : ";
+      await sendEmail(email, otp, text);
+  
+      return responseReturn(res, 200, { message: "OTP envoyé à votre email." });
+    } catch (error) {
+      return responseReturn(res, 500, { message: error.message });
+    }
+  };
 
 
+  export const verify_customer_reset_otp = async (req, res) => {
+    const { email, otp } = req.body;
+  
+    try {
+        const customer = await customerModel.findOne({email})
+  
+      if (!customer || customer.otp !== otp) {
+        return responseReturn(res, 400, { message: "OTP invalide." });
+      }
+  
+      return responseReturn(res, 200, { message: "OTP vérifié avec succès." });
+    } catch (error) {
+      return responseReturn(res, 500, { message: error.message });
+    }
+  };
+
+
+
+export const reset_customer_password = async (req, res) => {
+  const { email, password, otp } = req.body;
+
+  try {
+    const customer = await customerModel.findOne({email})
+
+    if (customer.otp !== otp) {
+      return responseReturn(res, 400, { message: "OTP invalide." });
+    }
+
+    if (!customer) {
+      return responseReturn(res, 404, { message: "Aucun compte avec cet email." });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    customer.password = hashed;
+    customer.otp = null;
+    await customer.save();
+
+    return responseReturn(res, 200, { message: "Mot de passe mis à jour avec succès." });
+  } catch (error) {
+    return responseReturn(res, 500, { message: error.message });
+  }
+};
+  
+/*
+export const create_seller_account= async(req, res) =>{
+   
+
+    console.log('request body', req.body)
+    console.log('colsele file', req.file)
+    
+    
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    
+    if (!emailRegex.test(req.body.email)) {
+      return  responseReturn(res, 400, { message: "Email invalide" });
+
+    }
+
+    if (req.body.password.length < 8) {
+     return responseReturn(res, 400, { message: "Le mot de passe doit comporter au moins 8 caractères" });
+        //return res.status(400).json({ status: false, message: "Le mot de passe doit comporter au moins 8 caractères" });
+    }
+
+    try {
+        const emailExists = await sellerModel.findOne({ email: req.body.email });
+        if (emailExists) {
+            //return res.status(400).json({ status: false, message: "Email déjà existant" });
+          return responseReturn(res, 400, { message: "Email déjà existant" });
+        }
+
+        const customer = await customerModel.findOne({email : req.body.email})
+        let newSeller ;
+
+        let newCustomer ;
+
+        if (!customer ||(customer && customer.otp!==null)) {
+            const hashedPassword = await bcrypt.hash(req.body.password, 10);
+            const otp = generateOtp();
+
+            newSeller = await sellerModel.create([{
+                name: req.body.name,
+                email: req.body.email,
+                password: hashedPassword,
+                role: "seller",
+                method: "manual",
+                otp: otp,
+                shopInfo: {
+                    shopName :req.body.shopName,
+                    country : req.body.country,
+                    city: req.body.city,
+                    address: req.body.address,
+                    telephone: req.body.telephone,
+                },
+            }], { session });
+
+
+            newCustomer = await customerModel.create([{
+                name: req.body.name.trim(),
+                email: req.body.email.trim(),
+                password: hashedPassword,
+                method: "manual",
+                otp: otp
+            }], { session });
+            
+        }
+
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
+        const otp = generateOtp();
+    
+        newSeller = await sellerModel.create([{
+            name: req.body.name,
+            email: req.body.email,
+            password: hashedPassword,
+            role: "seller",
+            method: "manual",
+            otp: otp,
+            shopInfo: {},
+        }], { session });
+
+        await sellerCustomerModel.create({
+            myId : newSeller[0]._id,
+        })
+    
+         newCustomer = await customerModel.create([{
+            name: req.body.name.trim(),
+            email: req.body.email.trim(),
+            password: hashedPassword,
+            method: "manual",
+            otp: otp
+        }], { session });
+    
+       
+
+        await sellerCustomerModel.create({
+            myId : newCustomer[0]._id,
+        })
+        const text=  "Bienvenue chez GOBYMAIL, Vous êtes désormais inscrits. Saissez ce code pour valider votre email"
+        sendEmail(newSeller[0].email,otp, text);
+    
+        await session.commitTransaction();
+        session.endSession();
+    
+        const token = await createToken({ id: newSeller[0]._id, role: newSeller[0].role, otp: newSeller[0].otp });
+        const customerToken = await createToken({ id: newCustomer[0]._id, name: newCustomer[0].name, email: newCustomer[0].email, method: newCustomer[0].method, otp: newCustomer[0].otp });
+    
+        res.cookie('accessToken', token, { expires: new Date(Date.now() + 21*24*60*60*1000), httpOnly: true, secure: true, sameSite: 'None' });
+        res.cookie('customerToken', customerToken, { expires: new Date(Date.now() + 21*24*60*60*1000), httpOnly: true, secure: true, sameSite: 'None' });
+    
+       return responseReturn(res, 201, { message: "Vos comptes vendeur et acheteur sont créés.", token, customerToken });
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+      return  responseReturn(res, 500, { message: error.message })
+    }
+    
+}
+*/
+
+export const create_seller_account = async (req, res) => {
+   // console.log("request body", req.body);
+   // console.log("file", req.file);
+  
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+  
+    if (!emailRegex.test(req.body.email)) {
+        console.log("Email invalide")
+      return responseReturn(res, 400, { message: "Email invalide" });
+    }
+  
+   
+  
+    const session = await mongoose.startSession();
+    session.startTransaction();
+  
+    try {
+      const existingSeller = await sellerModel.findOne({ email: req.body.email });
+      if (existingSeller) {
+        console.log("Email déjà utilisé pour un compte vendeur")
+        return responseReturn(res, 400, {
+          message: "Email déjà utilisé pour un compte vendeur",
+        });
+      }
+  
+      if (!req.file) {
+        return responseReturn(res, 400, { error: "Aucune image de profil envoyée" });
+      }
+  
+      // Téléversement image Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "GOBYMALL/profile",
+        public_id: `profile_${req.body.name}_${Date.now()}`,
+      });
+  
+      if (!result || !result.secure_url) {
+        return responseReturn(res, 500, {
+          error: "Échec du téléversement de l'image",
+        });
+      }
+  
+      const customer = await customerModel.findOne({ email: req.body.email });
+      let newSeller;
+      let newCustomer = null;
+      let otp = null;
+      let hashedPassword;
+      let newCustomerId;
+  
+      if (!customer || (customer && customer.otp !== null)) {
+        if (!req.body.password || req.body.password.length < 8) {
+            return responseReturn(res, 400, {
+              message: "Le mot de passe doit comporter au moins 8 caractères",
+            });
+          }
+        // Client inexistant ou non vérifié
+        otp = generateOtp();
+        hashedPassword = await bcrypt.hash(req.body.password, 10);
+  
+        newSeller = await sellerModel.create(
+          [
+            {
+              name: req.body.name,
+              email: req.body.email,
+              password: hashedPassword,
+              role: "seller",
+              method: "manual",
+              otp,
+              image: result.secure_url,
+              shopInfo: {
+                shopName: req.body.shopName,
+                country: req.body.country,
+                city: req.body.city,
+                address: req.body.address,
+                telephone: req.body.telephone,
+              },
+            },
+          ],
+          { session }
+        );
+  
+        if (!customer) {
+          newCustomer = await customerModel.create(
+            [
+              {
+                name: req.body.name.trim(),
+                email: req.body.email.trim(),
+                password: hashedPassword,
+                method: "manual",
+                otp,
+              },
+            ],
+            { session }
+          );
+        } else {
+          customer.name = req.body.name;
+          customer.password = hashedPassword;
+          customer.otp = otp;
+          await customer.save({ session });
+          newCustomer = customer;
+        }
+  
+        // Envoi OTP par mail
+        sendEmail(req.body.email, otp, "Bienvenue chez GOBYMALL, saisissez ce code pour valider votre email");
+     
+      } else if (customer.otp === null) {
+        // Client déjà vérifié
+        newSeller = await sellerModel.create(
+          [
+            {
+              name: customer.name,
+              email: customer.email,
+              password: customer.password,
+              role: "seller",
+              method: "manual",
+              otp: null,
+              image: result.secure_url,
+              shopInfo: {
+                shopName: req.body.shopName,
+                country: req.body.country,
+                city: req.body.city,
+                address: req.body.address,
+                telephone: req.body.telephone,
+              },
+            },
+          ],
+          { session }
+        );
+      }
+ // console.log('customer' , customer)
+ // console.log('new customer' , newCustomer)
+ // console.log('new seller' , newSeller)
+      // Lien dans la table des relations
+      await sellerCustomerModel.create([{ myId: newSeller[0]._id }], { session });
+  
+      if (newCustomer && newCustomer._id) {
+        newCustomerId = newCustomer._id;
+        await sellerCustomerModel.create([{ myId: newCustomer._id ||newCustomer[0]._id  }], { session });
+      }
+  
+      await session.commitTransaction();
+      session.endSession();
+  
+      const sellerToken = await createToken({
+        id: newSeller[0]._id,
+        role: newSeller[0].role,
+        otp: newSeller[0].otp,
+      });
+  
+      const baseCustomer = newCustomer || customer;
+  
+      const customerToken = await createToken({
+        id: baseCustomer._id,
+        name: baseCustomer.name,
+        email: baseCustomer.email,
+        method: baseCustomer.method,
+        otp: baseCustomer.otp,
+      });
+  
+      res.cookie("accessToken", sellerToken, {
+        expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      });
+  
+      res.cookie("customerToken", customerToken, {
+        expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      });
+   
+      return responseReturn(res, 201, {
+        message: `Compte vendeur créé avec succès `,
+        sellerToken,
+        customerToken,
+        newCustomerId:newCustomer[0]._id
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      console.error("Erreur de création de compte vendeur :", error);
+      return responseReturn(res, 500, { message: error.message });
+    }
+  };
+  
+/*
+export const upload_profile_image = async (req, res) => {
+    try {
+      const { id } = req; // Assurez-vous que l'ID de l'utilisateur est disponible (par exemple via authMiddleware)
+      //process.stdout.write(" id profile : " + id + "\n");
+      // Vérifiez si un fichier est attaché à la requête
+      if (!req.file) {
+        return responseReturn(res, 400, { error: "Aucun fichier fourni" });
+      }
+  
+      const imagePath = req.file.path; // Multer enregistre le fichier temporairement ici
+      const imageName = req.file.originalname;
+  
+      // Téléversement de l'image sur Cloudinary
+      const result = await cloudinary.uploader.upload(imagePath, {
+        folder: "GOBYMALL/profile",
+        public_id: `profile_${id}_${Date.now()}`, // Génère un identifiant unique pour le fichier
+      });
+  
+      if (!result || !result.url) {
+        return responseReturn(res, 500, { error: "Échec du téléversement de l'image" });
+      }
+  
+      // Mettre à jour l'image de profil de l'utilisateur dans la base de données
+      const updatedUser = await sellerModel.findByIdAndUpdate(
+        id,
+        { image: result.url },
+        { new: true } // Retourne les nouvelles informations après la mise à jour
+      );
+  
+      if (!updatedUser) {
+        return responseReturn(res, 404, { error: "Utilisateur introuvable" });
+      }
+  
+      // Suppression du fichier temporaire après l'upload
+      fs.unlink(imagePath, (err) => {
+        if (err) {
+          console.error("Erreur lors de la suppression du fichier temporaire :", err);
+        }
+      });
+  
+      const userInfo = await sellerModel.findById(id);
+  
+      // Retourner les informations mises à jour de l'utilisateur
+      return responseReturn(res, 200, { message: "Image téléversée avec succès", userInfo: userInfo });
+  
+    } catch (error) {
+      //console.error("Erreur lors du téléversement de l'image :", error.message);
+      responseReturn(res, 500, { error: "Erreur serveur" });
+    }
+  };
+*/

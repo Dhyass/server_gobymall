@@ -8,10 +8,13 @@ import {
     getUser,
     logout,
     profile_info_add,
+    reset_password,
     seller_login,
     seller_register,
+    send_reset_otp,
     switch_to_customer,
     upload_profile_image,
+    verify_reset_otp,
     verify_seller_otp
 } from '../controllers/authControllers.js';
 
@@ -51,6 +54,9 @@ router.post('/seller_register', seller_register);
 router.post('/seller_login', seller_login);
 router.get(`/seller/switch-to-customer`,authMiddleware, switch_to_customer )
 router.post(`/seller/verify-otp`, verify_seller_otp)
+router.post(`/seller/send-reset-otp`, send_reset_otp)
+router.post(`/seller/verify-reset-otp`, verify_reset_otp)
+router.post(`/seller/reset-password`, reset_password)
 router.get("/logout", logout);
 //router.post("/profile/uploadImage", authMiddleware, upload.single("image"),upload_profile_image);
 router.post("/profile/uploadImage",  authMiddleware, upload.single("image"), upload_profile_image);

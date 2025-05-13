@@ -639,46 +639,6 @@ export const switch_to_customer = async (req, res) => {
     }
   };
 
-/*
-  export const verifySellerAccount = async (req, res) => {
-      const { customerId, otp } = req.params;
-  
-      try {
-          const customer = await customerModel.findById(customerId);
-  
-          if (!customer) {
-              return responseReturn(res, 404, { message: "Client non trouvé" });
-          }
-  
-          if (customer.verification) {
-              return responseReturn(res, 400, { message: "Compte déjà vérifié" });
-          }
-  
-          if (customer.otp !== otp) {
-              return responseReturn(res, 400, { message: "Code OTP invalide" });
-          }
-  
-          // Vérification réussie
-          customer.verification = true;
-          customer.otp = null;
-          await customer.save();
-  
-          const token = await createToken({
-              id: customer.id,
-              name: customer.name,
-              email: customer.email,
-              method: customer.method
-          });
-          res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
-  
-          return responseReturn(res, 200, { message: "Compte vérifié avec succès", token });
-  
-      } catch (error) {
-          console.error("Erreur vérification client :", error);
-          return responseReturn(res, 500, { message: "Erreur interne du serveur" });
-      }
-  };*/
-  
   export const verify_seller_otp = async (req, res) => {
     const { email, otp } = req.body;
 
@@ -711,5 +671,90 @@ export const switch_to_customer = async (req, res) => {
         return responseReturn(res, 500, { message: error.message });
     }
 }
+
+
+
+export const send_reset_otp = async (req, res) => {
+    const { email } = req.body;
+  
+    try {
+      const seller = await sellerModel.findOne({ email });
+      if (!seller) {
+        return responseReturn(res, 404, { message: "Aucun compte avec cet email." });
+      }
+
+      const customer = await customerModel.findOne({email})
+
+      if (!customer) {
+        return responseReturn(res, 404, { message: "Aucun compte avec cet email." });
+      }
+  
+      const otp = generateOtp();
+      seller.otp = otp;
+      await seller.save();
+
+      customer.otp = otp;
+      await customer.save();
+  
+      const text = "Voici votre code de réinitialisation de mot de passe pour GOBYMAIL : ";
+      await sendEmail(email, otp, text);
+  
+      return responseReturn(res, 200, { message: "OTP envoyé à votre email." });
+    } catch (error) {
+      return responseReturn(res, 500, { message: error.message });
+    }
+  };
+
+
+  export const verify_reset_otp = async (req, res) => {
+    const { email, otp } = req.body;
+  
+    try {
+      const seller = await sellerModel.findOne({ email });
+  
+      if (!seller || seller.otp !== otp) {
+        return responseReturn(res, 400, { message: "OTP invalide." });
+      }
+  
+      return responseReturn(res, 200, { message: "OTP vérifié avec succès." });
+    } catch (error) {
+      return responseReturn(res, 500, { message: error.message });
+    }
+  };
+
+
+
+export const reset_password = async (req, res) => {
+  const { email, password, otp } = req.body;
+
+  try {
+    const seller = await sellerModel.findOne({ email });
+
+    if (!seller || seller.otp !== otp) {
+      return responseReturn(res, 400, { message: "OTP invalide." });
+    }
+
+    const customer = await customerModel.findOne({email})
+
+    if (!customer) {
+      return responseReturn(res, 404, { message: "Aucun compte avec cet email." });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    seller.password = hashed;
+    seller.otp = null;
+    await seller.save();
+
+    customer.password = hashed;
+    customer.otp = null;
+    await customer.save();
+
+    return responseReturn(res, 200, { message: "Mot de passe mis à jour avec succès." });
+  } catch (error) {
+    return responseReturn(res, 500, { message: error.message });
+  }
+};
+
+
 
 
