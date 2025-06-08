@@ -23,6 +23,10 @@ const customerSchema = new Schema({
         type: String, 
         required: true 
     },
+    shippingInfo: {
+        type: Array,
+        default: []
+    }
  
 }, { timestamps: true });
 

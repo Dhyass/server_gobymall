@@ -70,7 +70,7 @@ export const get_seller_dashboard_data = async (req, res) => {
 
        const recentOrders = await authOrderModel.find({
         sellerId: sellerObjectId
-       }).limit(5)
+       }).sort({ createdAt: -1 }).limit(5)
 /*
        console.log('totalSales', totalSales)
        console.log('totalOrders', totalOrders)
@@ -94,6 +94,7 @@ export const get_seller_dashboard_data = async (req, res) => {
    }
 }
 
+/*
 export const get_admin_dashboard_data = async(req, res)=>{
     const { id } = req;
    // console.log('req body ', req.id)
@@ -115,11 +116,7 @@ export const get_admin_dashboard_data = async(req, res)=>{
 
        const messages = await adminSellerMessageModel.find({
         $or:[
-          /* {
-                senderId:{
-                    $eq:""
-                }
-            },*/
+       
             {
                 receiverId: {
                     $eq: ""
@@ -149,4 +146,46 @@ export const get_admin_dashboard_data = async(req, res)=>{
     console.log('getting admin data error', error.message)
     responseReturn(res, 500, {message : 'erreur interne du serveur'})
    }
+}
+*/
+
+export const get_admin_dashboard_data = async(req, res) => {
+    const { id } = req;
+
+    try {
+        const totalSales = await myShopWalletModel.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalAmount: { $sum: "$amount" }
+                }
+            }
+        ]);
+
+        const totalOrders = await authOrderModel.countDocuments();
+        const totalProducts = await productModel.countDocuments();
+        const totalSellers = await sellerModel.countDocuments();
+
+        const messages = await adminSellerMessageModel.find({
+            $or: [
+                { receiverId: "" }
+            ]
+        }).sort({ createdAt: -1 }).limit(3);
+
+        const recentOrders = await authOrderModel.find({})
+            .sort({ createdAt: -1 })
+            .limit(5);
+
+        responseReturn(res, 200, {
+            totalSales: totalSales.length > 0 ? totalSales[0].totalAmount : 0,
+            totalOrders,
+            totalProducts,
+            totalSellers,
+            recentMessages: messages,
+            recentOrders
+        });
+    } catch (error) {
+        console.log('getting admin data error', error.message);
+        responseReturn(res, 500, { message: 'erreur interne du serveur' });
+    }
 }

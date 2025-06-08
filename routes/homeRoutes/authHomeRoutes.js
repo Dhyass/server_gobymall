@@ -2,13 +2,17 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import {
+    addCustomerAddresses,
     create_seller_account,
     customer_login,
     customer_logout,
     customer_register,
+    getCustomerAddresses,
     reset_customer_password,
     send_customer_reset_otp,
+    setDefaultCustomerAddress,
     switch_to_seller,
+    updateCustomerAddressByIndex,
     verify_customer_reset_otp,
     verifyCustomerAccount
 } from '../../controllers/homeControllers/authHomeControllers.js';
@@ -49,6 +53,15 @@ router.post(`/customer/send-customer-reset-otp`, send_customer_reset_otp)
 router.post(`/customer/verify-customer-reset-otp`, verify_customer_reset_otp)
 router.post(`/customer/reset-customer-password`, reset_customer_password)
 router.post(`/customer/createSellerAccount`, upload.single('image'), create_seller_account)
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+router.post('/customer/add_customer_addresses/:customerId', addCustomerAddresses)
+router.get("/customer/get_customer_addresses/:customerId", getCustomerAddresses);
+router.put("/customer/update-customer-address/:customerId", updateCustomerAddressByIndex);
+router.put('/customer/set_default_address/:customerId', setDefaultCustomerAddress);
+
+
 
 export default router;  //export the router
 //export default router; // export the router as a default export

@@ -618,6 +618,8 @@ export const switch_to_customer = async (req, res) => {
         id: customer._id,
         name: customer.name,
         email: customer.email,
+        method: customer.method,
+        otp: customer.otp,
     });
 
       res.cookie('customerToken', customerToken, {

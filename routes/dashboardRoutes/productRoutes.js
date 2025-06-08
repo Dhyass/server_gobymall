@@ -5,6 +5,7 @@ import path from 'path';
 import {
     add_product,
     delete_product,
+    get_category_tags,
     get_product_by_id,
     get_products,
     updateProduct
@@ -47,5 +48,7 @@ router.get('/products/products_get', authMiddleware, get_products);
 router.get('/products/get_product_by_id/:id', authMiddleware, get_product_by_id);
 router.delete('/product/delete/:id', authMiddleware, delete_product);
 router.put('/product/update', authMiddleware, upload.array('newImages[]',4), updateProduct);
+
+router.get('/product/tags', get_category_tags);
 
 export default router;

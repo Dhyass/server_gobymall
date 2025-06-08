@@ -200,9 +200,7 @@ export const get_orders = async (req, res) => {
             sort({createdAt: -1});
          }
 
-        
          const totalOrder = await customerOrderModel.countDocuments({ customerId: customerObjectId});
-
 
           // Appliquez la pagination
         const pageNumber = Number(req.query.pageNumber) || 1;
@@ -259,7 +257,7 @@ export const get_dashboard_data = async (req, res) => {
 
 export const get_order_by_id = async (req, res) => {
     const {orderId} = req.params;
-   // console.log('get order by id is running :>> req params :', req.params);
+    //console.log('get order by id is running :>> req params :', req.params);
     try {
         if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
             return responseReturn(res, 400, { message: "ID invalide" });
@@ -278,7 +276,7 @@ export const get_order_by_id = async (req, res) => {
     }
 }
 
-
+/*
 export const get_admin_orders = async(req,res)=>{
     //console.log('req query', req.query);
     let {page,searchValue, parPage} = req.query;
@@ -314,6 +312,54 @@ export const get_admin_orders = async(req,res)=>{
             ]);
 
            // console.log('orders', orders);
+            return responseReturn(res, 200, { orders, totalOrder });
+        }
+    } catch (error) {
+        console.log('error :>> ', error);
+        return responseReturn(res, 500, { message: "Error fetching orders" });
+    }
+}
+*/
+
+export const get_admin_orders = async (req, res) => {
+    let { page, searchValue, parPage } = req.query;
+    page = parseInt(page);
+    parPage = parseInt(parPage);
+
+    const skipPage = parPage * (page - 1);
+
+    try {
+        if (searchValue) {
+            // Ajouter logique de recherche ici
+        } else {
+            const orders = await customerOrderModel.aggregate([
+                {
+                    $lookup: {
+                        from: 'authorders',
+                        localField: '_id',
+                        foreignField: 'orderId',
+                        as: 'subOrder'
+                    }
+                },
+                { $sort: { createdAt: -1 } },
+                { $skip: skipPage },
+                { $limit: parPage }
+            ]);
+
+            const totalOrderResult = await customerOrderModel.aggregate([
+                {
+                    $lookup: {
+                        from: 'authorders',
+                        localField: '_id',
+                        foreignField: 'orderId',
+                        as: 'subOrder'
+                    }
+                },
+                { $count: 'total' }
+            ]);
+
+            const totalOrder = totalOrderResult[0]?.total || 0;
+
             return responseReturn(res, 200, { orders, totalOrder });
         }
     } catch (error) {
@@ -468,72 +514,6 @@ export const create_payment = async (req, res) => {
         res.status(500).json({ message: "Error creating payment" });
     }
 };
-/*
-
-export const order_confirm = async(req, res)=>{
-    const {orderId} = req.params;
-    //console.log('order id ', orderId);
-    try {
-
-
-
-        await customerOrderModel.findByIdAndUpdate(orderId, 
-            {
-                payment_status:'paid',
-                delivery_status:'pending'
-            })
-            if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-                return responseReturn(res, 400, { message: "ID invalide" });
-            }
-            const orderObjectId = mongoose.Types.ObjectId.createFromHexString(orderId);
-            const order = await authOrderModel.updateMany({orderId : orderObjectId},{
-                payment_status:'paid',
-                delivery_status:'pending'
-            })
-
-
-            const customerOrder = await customerOrderModel.findById(orderId)
-           // console.log('customer order ', customerOrder)
-
-            const authOrder = await authOrderModel.find({orderId : orderObjectId})
-            const time = moment(Date.now()).format('l')
-            const splitTime = time.split('/')
-
-            await myShopWalletSchemaModel.create({
-                amount : customerOrder.price,
-                month : splitTime[0],
-                year : splitTime[2]
-            })
-            
-            let product = {}
-
-            if (customerOrder.payment_status === 'paid') {
-                for (let index = 0; index < customerOrder.products.length; index++) {
-                    product = customerOrder.products[index]
-                    const newQuantity = product.stock-product.quantity
-                    console.log("new quantity ", newQuantity)
-                    product = await productModel.findByIdAndUpdate(product._id, {
-                        quantity :  newQuantity
-                    })
-                }    
-            }
-
-            for (let i = 0; i < authOrder.length; i++) {
-                await sellerWalletModel.create({
-                    sellerId : authOrder[i].sellerId.toString(),
-                    amount : authOrder[i].price,
-                    month : splitTime[0],
-                    year : splitTime[2]
-                })
-                
-            }
-
-            return responseReturn(res, 200, {message : 'success'});
-    } catch (error) {
-        console.log('error :>> ', error);
-        return responseReturn(res, 500, { message: "Error confirm order" });
-    }
-}*/
 
 export const order_confirm = async (req, res) => {
     const { orderId } = req.params;

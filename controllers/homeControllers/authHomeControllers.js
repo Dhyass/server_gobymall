@@ -74,17 +74,16 @@ export const customer_register= async(req, res) =>{
             myId : newCustomer.id,
         })
     
-        const token = await createToken({
+       /*const token = await createToken({
             id: newCustomer.id,
             name : newCustomer.name,
             email : newCustomer.email,
             method : newCustomer.method,
             otp: newCustomer.otp
         });
-        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
-        
+       res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });*/
         //console.log(newSeller);
-        return responseReturn(res, 201, {message: " Votre  compte client est bien créé" , token, newCustomerId : newCustomer.id});
+        return responseReturn(res, 201, {message: " Votre  compte client est bien créé" , newCustomerId : newCustomer.id});
 
        
     } catch (error) {
@@ -270,7 +269,7 @@ export const customer_login = async (req, res) => {
 
         //    console.log('customer id ', customer.id)
 
-            return responseReturn(res, 403, { 
+          return responseReturn(res, 403, { 
                 message: "Votre compte n'est pas vérifié. Un nouveau code vous a été envoyé.", 
                 newCustomerId: customer.id
             });
@@ -281,7 +280,8 @@ export const customer_login = async (req, res) => {
             id: customer.id,
             name: customer.name,
             email: customer.email,
-            method: customer.method
+            method: customer.method,
+            otp: customer.otp
         });
         res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
 
@@ -323,16 +323,17 @@ export const verifyCustomerAccount = async (req, res) => {
        // customer.verification = true;
         customer.otp = null;
         await customer.save();
-
+        /*
         const token = await createToken({
             id: customer.id,
             name: customer.name,
             email: customer.email,
-            method: customer.method
+            method: customer.method,
+            otp: customer.otp
         });
-        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });
+        res.cookie('customerToken', token, { expires: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000) });*/
 
-        return responseReturn(res, 200, { message: "Compte vérifié avec succès", token });
+        return responseReturn(res, 200, { message: "Compte vérifié avec succès"});
 
     } catch (error) {
         console.error("Erreur vérification client :", error);
@@ -585,7 +586,7 @@ export const create_seller_account = async (req, res) => {
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
   
     if (!emailRegex.test(req.body.email)) {
-        console.log("Email invalide")
+       // console.log("Email invalide")
       return responseReturn(res, 400, { message: "Email invalide" });
     }
   
@@ -597,7 +598,7 @@ export const create_seller_account = async (req, res) => {
     try {
       const existingSeller = await sellerModel.findOne({ email: req.body.email });
       if (existingSeller) {
-        console.log("Email déjà utilisé pour un compte vendeur")
+        //console.log("Email déjà utilisé pour un compte vendeur")
         return responseReturn(res, 400, {
           message: "Email déjà utilisé pour un compte vendeur",
         });
@@ -816,3 +817,186 @@ export const upload_profile_image = async (req, res) => {
     }
   };
 */
+
+
+////////////////////////////////// addresses
+
+// controllers/customerController.js
+
+export const addCustomerAddresses = async (req, res) => {
+  try {
+    const customerId = req.params.customerId; // Assure-toi que l'utilisateur est authentifié
+    const newAddresses = req.body.info; // Tableau ou objet
+
+   /// console.log('customerId', customerId);
+   console.log('newAddresses', newAddresses);
+
+    if (!customerId) {
+      return responseReturn(res, 400, { message: "Non autorisé" });
+     // return res.status(401).json({ message: "Non autorisé" });
+    }
+
+    if (!newAddresses || (Array.isArray(newAddresses) && newAddresses.length === 0)) {
+      return responseReturn(res, 400, { message: "Aucune adresse à ajouter" });
+      //return res.status(400).json({ message: "Aucune adresse à ajouter" });
+    }
+
+    const customer = await customerModel.findById(customerId);
+
+    if (!customer) {
+     // return res.status(404).json({ message: "Client introuvable" });
+      return responseReturn(res, 400, { message: "Client introuvable" });
+    }
+
+    // Normalisation : si une seule adresse, transforme en tableau
+    const addressesToAdd = Array.isArray(newAddresses) ? newAddresses : [newAddresses];
+
+    // Ajout des adresses à la suite (ou utilise .unshift pour les mettre en haut)
+    customer.shippingInfo.push(...addressesToAdd);
+
+    await customer.save();
+
+    //return res.status(200).json({ message: "Adresse(s) ajoutée(s) avec succès", addresses: customer.shippingInfo });
+    return responseReturn(res, 200, { message: "Adresse(s) ajoutée(s) avec succès", addresses: customer.shippingInfo });
+  } catch (error) {
+    console.error("Erreur ajout adresse client :", error);
+    //res.status(500).json({ message: "Erreur serveur" });
+    return responseReturn(res, 500, { error: "Erreur serveur" });
+  }
+};
+
+
+
+export const getCustomerAddresses = async (req, res) => {
+  try {
+    const customerId = req.params.customerId;
+
+    //console.log('customerid ', customerId);
+
+    if (!customerId) {
+      return responseReturn(res, 400, { message: "Identifiant client manquant" });
+    }
+
+    const customer = await customerModel.findById(customerId);
+
+    if (!customer) {
+      return responseReturn(res, 404, { message: "Client introuvable" });
+    }
+
+    const addresses = customer.shippingInfo || [];
+
+    //console.log('customer addresses', addresses)
+
+    return responseReturn(res, 200, {
+      message: "Adresses récupérées avec succès",
+      addresses,
+    });
+  } catch (error) {
+    console.error("Erreur récupération adresses client :", error);
+    return responseReturn(res, 500, { error: "Erreur serveur" });
+  }
+};
+
+
+export const updateCustomerAddressByIndex = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const { index, updatedAddress } = req.body;
+
+    if (!customerId || typeof index !== "number" || !updatedAddress) {
+      return responseReturn(res, 400, { message: "Paramètres invalides." });
+    }
+
+    const customer = await customerModel.findById(customerId);
+
+    if (!customer) {
+      return responseReturn(res, 404, { message: "Client introuvable." });
+    }
+
+    if (!Array.isArray(customer.shippingInfo) || index < 0 || index >= customer.shippingInfo.length) {
+      return responseReturn(res, 400, { message: "Index d'adresse invalide." });
+    }
+
+    const currentInfo = customer.shippingInfo[index] || customer.shippingInfo[index].info;
+
+    // ✅ Mise à jour fiable avec fallback
+    currentInfo.country = updatedAddress.country || currentInfo.country;
+    currentInfo.countryCode = updatedAddress.countryCode || currentInfo.countryCode;
+    currentInfo.name = updatedAddress.name || currentInfo.name;
+    currentInfo.phone = updatedAddress.phone || currentInfo.phone;
+    currentInfo.address = updatedAddress.address || currentInfo.address;
+    currentInfo.apartment = updatedAddress.apartment || currentInfo.apartment;
+    currentInfo.region = updatedAddress.region || currentInfo.region;
+    currentInfo.city = updatedAddress.city || currentInfo.city;
+    currentInfo.postalCode = updatedAddress.postalCode || currentInfo.postalCode;
+    currentInfo.default = currentInfo.default; // Attention ici si false est une valeur valide
+
+    // ✅ Force mongoose à enregistrer la modif
+    customer.markModified(`shippingInfo`);
+
+    await customer.save();
+
+    return responseReturn(res, 200, {
+      message: "Adresse mise à jour avec succès.",
+      index,
+      updatedAddress: customer.shippingInfo[index] ||customer.shippingInfo[index].info,
+    });
+  } catch (error) {
+    console.error("Erreur mise à jour adresse client :", error);
+    return responseReturn(res, 500, { error: "Erreur serveur." });
+  }
+};
+
+
+export const setDefaultCustomerAddress = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const { index } = req.body;
+
+    console.log('customer id', customerId)
+    console.log('index ', index)
+
+    if (!customerId || typeof index !== "number") {
+      return responseReturn(res, 400, { message: "Paramètres invalides." });
+    }
+
+    const customer = await customerModel.findById(customerId);
+
+    if (!customer) {
+      return responseReturn(res, 404, { message: "Client introuvable." });
+    }
+
+    if (!Array.isArray(customer.shippingInfo) || index < 0 || index >= customer.shippingInfo.length) {
+      return responseReturn(res, 400, { message: "Index d'adresse invalide." });
+    }
+
+    // ✅ Mise à false de toutes les autres adresses
+   customer.shippingInfo.forEach((addr, i) => {
+      addr.default = (i === index); // seule l'adresse à l'index reçu est true
+      console.log('addr default', addr.default)
+    });
+
+/*
+  console.log(' customer shippingInfo',  customer.shippingInfo)
+    for (let i = 0; i < customer.shippingInfo.length; i++) {
+      if (i===index) {
+        customer.shippingInfo[i].default= true
+      } else {
+        customer.shippingInfo[i].default= false
+      }
+    }
+*/
+    customer.markModified("shippingInfo");
+    await customer.save();
+
+    return responseReturn(res, 200, {
+      message: "Adresse par défaut mise à jour avec succès.",
+      defaultIndex: index,
+      addresses: customer.shippingInfo,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la définition de l'adresse par défaut :", error);
+    return responseReturn(res, 500, { error: "Erreur serveur." });
+  }
+};
+

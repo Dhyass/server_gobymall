@@ -136,7 +136,7 @@ io.on('connection', (socket) => {
 
     socket.on('send_message_to_seller',(message)=>{
         //console.log('message coté serveur  ',message);
-      //  console.log('seller id  ',message.receiverId);
+        //console.log('seller id  ',message.receiverId);
        const seller = findSeller(message.receiverId);
        // console.log('seller  ',seller );
         if(seller !== undefined){
@@ -146,17 +146,33 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('send_message_admin_to_seller',(message) => {
+    /*socket.on('send_message_admin_to_seller',(message) => {
         //console.log('message envoyé au vendeur  ', message);
-        //console.log('seller id  ',message.receiverId);
+        console.log('seller id  ',message.receiverId);
         const seller = findSeller(message.receiverId);
-       // console.log('seller  ',seller );
+        console.log('seller  ',seller );
         if(seller !== undefined){
            // console.log('message coté serveur  ',message);
            console.log(' ');
             socket.to(seller.socketId).emit('receive_admin_message',message);
         }
-    })
+    })*/
+
+socket.on('send_message_admin_to_seller', (message) => {
+    if (!message || !message.receiverId) {
+        console.error('❌ Message invalide reçu via socket:', message);
+        return; // Ne rien faire
+    }
+
+    console.log('✅ message envoyé au vendeur:', message);
+    console.log('seller id:', message.receiverId);
+
+    const seller = findSeller(message.receiverId);
+    if (seller !== undefined) {
+        socket.to(seller.socketId).emit('receive_admin_message', message);
+    }
+});
+
 
     socket.on('send_message_seller_to_admin',(message) => {
         if (admin.socketId) {

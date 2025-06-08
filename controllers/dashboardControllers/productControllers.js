@@ -404,3 +404,34 @@ export const delete_product = async (req, res) => {
     }
 };
 
+
+export const get_category_tags = async (req, res) =>{
+    const { category } = req.query;
+    //console.log('category', category)
+
+  if (!category) {
+     return responseReturn(res, 400, { message: 'category is required.' });
+    //return res.status(400).json({ error: 'Category is required' });
+  }
+
+  try {
+    const result = await productModel.aggregate([
+      { $match: { category } },
+      { $unwind: '$tags' },
+      { $group: { _id: '$tags', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 20 }, // tu peux ajuster selon les besoins
+    ]);
+
+    const tags = result.map(tag => tag._id);
+   // console.log('tags', tags)
+   // res.json({ tags });
+    return responseReturn(res, 200, { tags});
+  } catch (err) {
+    console.error('Error fetching tags:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// GET /api/tags?category=Electronics
+
