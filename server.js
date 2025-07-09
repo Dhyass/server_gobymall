@@ -1,3 +1,4 @@
+import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import 'dotenv/config'; // Charge les variables d'environnement en haut du fichier
@@ -213,6 +214,8 @@ app.use(cors({
 app.use(express.json()); // Remplace body-parser pour les JSON
 app.use(express.urlencoded({ extended: true })); // Remplace body-parser pour les données URL encodées
 app.use(cookieParser());
+// ✅ Ajoute ceci :
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Importer et utiliser les routes d'authentification
 app.use('/api', authRoutes);

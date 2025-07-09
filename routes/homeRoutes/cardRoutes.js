@@ -1,7 +1,10 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { add_to_card, add_to_wishlist, delete_card_product, delete_wishlist_product, get_card, get_wishlist_products, update_product_quantity } from '../../controllers/homeControllers/cardControllers.js';
+import {
+    add_to_card, add_to_wishlist, delete_card_product, delete_wishlist_product, get_card, get_wishlist_products,
+    recalculateCart, update_product_quantity
+} from '../../controllers/homeControllers/cardControllers.js';
 
 
 
@@ -38,6 +41,7 @@ router.put('/card/update_product_quantity/:cardId', update_product_quantity);
 router.post('/wishlist/add_to_wishlist', add_to_wishlist);
 router.get('/wishlist/get_wishlist_products/:customerId', get_wishlist_products);
 router.delete('/wishlist/remove_wishlist_product/:wishlistId', delete_wishlist_product);
+router.post('/cart/recalculate', recalculateCart)
 
 
 

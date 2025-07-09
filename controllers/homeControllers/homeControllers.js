@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import categoryModel from "../../models/categoryModel.js";
 import productModel from "../../models/productModel.js";
 import reviewModel from "../../models/reviewsModel.js";
+import sellerModel from "../../models/sellerModel.js";
+import { calculateDynamicShipping, getClientLocationFromIP } from "../../utiles/dynamicDeliveryFees.js";
 import { responseReturn } from "../../utiles/response.js";
 
 // Format products into rows of 3
@@ -26,7 +28,10 @@ const formatProduct = (products) => {
 export const get_home_Category = async (req, res) => {
     try {
         const categories = await categoryModel.find({});
-        responseReturn(res, 200, { categories });
+            // ✅ Obtenir localisation client via IP
+        const clientLocation = await getClientLocationFromIP();
+        //console.log("Localisation client détectée :", clientLocation);
+        responseReturn(res, 200, { categories, clientLocation});
     } catch (error) {
         console.error("Error fetching categories:", error);
         res.status(500).json({ message: "Error fetching categories" });
@@ -56,7 +61,7 @@ export const get_home_product = async (req, res) => {
        // process.stdout.write("Home discountProducts: " + JSON.stringify(topDiscountedProducts) + "\n");
 
         // Return response
-        responseReturn(res, 200, { products, latestProducts, topRatedProducts, topDiscountedProducts });
+        responseReturn(res, 200, { products, latestProducts, topRatedProducts, topDiscountedProducts});
     } catch (error) {
         console.error("Error fetching products:", error);
         res.status(500).json({ message: "Error fetching products" });
@@ -112,26 +117,6 @@ export const get_query_sort_products = async (req, res) => {
 
         // Appliquez les filtres
         let products = await productModel.find(filters);
-
-        // Filtrez les produits avec searchQuery
-       /* if (req.query.searchValue) {
-            const searchValue = req.query.searchValue.toUpperCase();
-            products = products.filter(product => 
-                product.name.toUpperCase().indexOf(searchValue) > -1
-            );
-        }*/
-/*
-            if (req.query.searchValue) {
-                const regex = new RegExp(req.query.searchValue, 'i'); // i = insensitive case
-            
-                filters.$or = [
-                    { name: regex },
-                    { tags: { $in: [regex] } },
-                    { description: regex },
-                    { category: regex }
-                ];
-            }
-            */
 
             if (req.query.searchValue) {
                 const searchValue = req.query.searchValue.toUpperCase();
@@ -218,8 +203,42 @@ export const get_product = async (req, res) => {
 
        // console.log( 'more products', moreProducts)
 
+       const clientLocation = await getClientLocationFromIP();
+       console.log("Localisation client détectée :", clientLocation);
+
+        /// seller info 
+
+           const seller = await sellerModel.findById(product.sellerId);
+           const sellerLocation = seller.shopInfo
+
+           //console.log('seller ', seller)
+            // console.log('seller location ', sellerLocation)
+
+            const deliveryType = product.deliveryType; // free, fixed, negotiable, dynamic
+            const deliveryFee = product.deliveryFee ?? 0;
+
+            // ✅ Calcul des frais selon deliveryType
+             let shippingFee = 0;
+             const quantity = 1
+       
+             if (deliveryType === "free") {
+               shippingFee = 0;
+             } else if (deliveryType === "fixed") {
+               shippingFee = deliveryFee*quantity; // ✅ Multiplier par quantité
+             } else if (deliveryType === "negotiable") {
+               shippingFee = "negotiable";
+             } else if (deliveryType === "dynamic" && clientLocation) {
+               shippingFee = await calculateDynamicShipping(
+                 sellerLocation,
+                 clientLocation,
+                 product,
+                 quantity
+               );
+               console.log('shipping fees', shippingFee)
+             }
+
     //console.log("product:", product);
-    responseReturn(res, 200,{ message: "Produit non trouvé" , product, moreProducts, relatedProducts});
+    responseReturn(res, 200,{ message: "Produit non trouvé" , product, moreProducts, relatedProducts, shippingFee});
     
 } catch (error) {
     console.error("Error fetching product:", error);

@@ -388,9 +388,10 @@ export const upload_profile_image = async (req, res) => {
   }
 };
 
+/*
 export const profile_info_add = async (req, res) => {
    // process.stdout.write("profile mise à jour :  \n" + req.body);
-  const { shopName, country,city,address,telephone } = req.body;
+  const { shopName, country,city,address,telephone,lat,lon } = req.body;
  
  try {
     const { id } = req; // Assurez-vous que l'ID de l'utilisateur est disponible (par exemple via authMiddleware)
@@ -402,7 +403,9 @@ export const profile_info_add = async (req, res) => {
             country,
             city,
             address,
-            telephone
+            telephone,
+            lat,
+            lon
         }
     })
     if (!updatedUser) {
@@ -420,6 +423,74 @@ export const profile_info_add = async (req, res) => {
 
 
 }
+*/
+
+export const profile_info_add = async (req, res) => {
+  const { shopName, country, city, address, telephone, lat, lon, countryCode} = req.body;
+
+  try {
+    const { id } = req; // ID utilisateur injecté par authMiddleware
+
+    // ✅ Validation des champs obligatoires
+    if (!shopName || !country || !city || !address || !telephone || !lat || !lon) {
+      return responseReturn(res, 400, { message: "Tous les champs sont obligatoires." });
+    }
+
+    // ✅ Validation lat/lon : au moins 4 chiffres après la virgule
+    const latRegex = /^-?\d+\.\d{4,}$/;
+    const lonRegex = /^-?\d+\.\d{4,}$/;
+
+    if (!latRegex.test(lat)) {
+      return responseReturn(res, 400, {
+        message: "Latitude invalide. Elle doit avoir au moins 4 chiffres après la virgule.",
+      });
+    }
+
+    if (!lonRegex.test(lon)) {
+      return responseReturn(res, 400, {
+        message: "Longitude invalide. Elle doit avoir au moins 4 chiffres après la virgule.",
+      });
+    }
+
+    // ✅ Validation téléphone : doit être format international + indicatif pays
+    const phoneRegex = /^\+\d{1,4}\d{6,15}$/; // +code + numéro
+    if (!phoneRegex.test(telephone)) {
+      return responseReturn(res, 400, {
+        message: "Numéro de téléphone invalide. Format attendu : +[code pays][numéro].",
+      });
+    }
+
+    // ✅ Mise à jour
+    const updatedUser = await sellerModel.findByIdAndUpdate(
+      id,
+      {
+        shopInfo: {
+          shopName,
+          country,
+          city,
+          address,
+          telephone,
+          lat : parseFloat(lat),
+          lon : parseFloat(lon),
+          countryCode,
+        },
+      },
+      { new: true } // retourne l'utilisateur mis à jour
+    );
+
+    if (!updatedUser) {
+      return responseReturn(res, 404, { message: "Utilisateur introuvable." });
+    }
+
+    return responseReturn(res, 200, {
+      message: "Informations de profil mises à jour avec succès",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Erreur mise à jour profil :", error.message);
+    return responseReturn(res, 500, { message: "Erreur serveur" });
+  }
+};
 
 
 

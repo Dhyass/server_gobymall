@@ -121,7 +121,8 @@ export const get_category = async (req, res) =>  {
       //  console.log("Type de categories :", Array.isArray(categories)); // Vérification du type
        // console.log("Valeur de categories :", categories); // Vérification de la valeur
 
-        responseReturn(res, 200, { categories, totalCategory });
+    
+        responseReturn(res, 200, { categories, totalCategory});
     } catch (error) {
         console.error(error.message);
         responseReturn(res, 500, { message: "An error occurred while retrieving categories." });

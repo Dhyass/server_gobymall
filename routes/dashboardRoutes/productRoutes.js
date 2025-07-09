@@ -39,15 +39,29 @@ const fileFilter = (req, file, cb) => {
 // Initialisation de multer avec le stockage et filtrage optionnel
 const upload = multer({ storage, fileFilter });
 
+const uploadMultiple = upload.fields([
+  { name: 'images[]', maxCount: 10 },
+  { name: 'variantImage', maxCount: 20 }  // Autorise jusqu’à 20 images de variantes
+]);
+
+const uploadMultipleUpdate = upload.fields([
+  { name: 'newImages[]', maxCount: 5 },
+  { name: 'variantImage', maxCount: 20 }  // Autorise jusqu’à 20 images de variantes
+]);
+
+
+
 // Route avec le middleware d'authentification et de téléchargement de fichiers
 
-router.post('/product_add', authMiddleware, upload.array('images[]'), add_product);
+//router.post('/product_add', authMiddleware, upload.array('images[]'),upload.single('variantImage'), add_product);
  
+router.post('/product_add',authMiddleware, uploadMultiple,add_product);
 
 router.get('/products/products_get', authMiddleware, get_products);
 router.get('/products/get_product_by_id/:id', authMiddleware, get_product_by_id);
 router.delete('/product/delete/:id', authMiddleware, delete_product);
-router.put('/product/update', authMiddleware, upload.array('newImages[]',4), updateProduct);
+//router.put('/product/update', authMiddleware, upload.array('newImages[]',4), updateProduct);
+router.put('/product/update', authMiddleware, uploadMultipleUpdate, updateProduct);
 
 router.get('/product/tags', get_category_tags);
 
