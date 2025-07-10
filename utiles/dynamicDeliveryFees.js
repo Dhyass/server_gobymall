@@ -1,13 +1,13 @@
 
 import axios from "axios";
 
-// ✅ Obtenir la position du client via ipapi
+// ✅ Obtension de la position du client via ipapi
 export async function getClientLocationFromIP() {
   try {
     const options = {
       method: "GET",
       url: "https://api.ipapi.com/check",
-      params: { access_key: process.env.IPAPI_KEY }, // 🔑 Clé API dans .env
+      params: { access_key: process.env.IPAPI_KEY }, 
     };
 
     const response = await axios.request(options);
@@ -20,7 +20,7 @@ export async function getClientLocationFromIP() {
       city: response.data.city,
       lat: response.data.latitude,
       lon: response.data.longitude,
-      country_flag : response.data.location.country_flag
+      //country_flag : response.data.location.country_flag
     };
   } catch (err) {
     console.error("Erreur géolocalisation IP :", err.message);
