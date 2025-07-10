@@ -894,6 +894,11 @@
   dependencies:
     "@types/webidl-conversions" "*"
 
+"@vercel/functions@^2.2.3":
+  version "2.2.3"
+  resolved "https://registry.yarnpkg.com/@vercel/functions/-/functions-2.2.3.tgz#ec3108a1c1c099e78ae01dea08672fe023a17da6"
+  integrity sha512-Z6xwsxM/57/92PLW2HoLLmVw4+Nb5OZzMzDA4qfkksWgG1k5dGV7kvP1TDEOlW3WHjqWtfPJBcd61dE2p0mbxQ==
+
 abbrev@1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/abbrev/-/abbrev-1.1.1.tgz#f8f2c887ad10bf67f634f005b6987fed3179aac8"

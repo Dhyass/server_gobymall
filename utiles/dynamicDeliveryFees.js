@@ -28,7 +28,7 @@ import axios from "axios";
   }
 }
 */
-
+/*
 export async function getClientLocationFromIP(req) {
   try {
     const response = await axios.get(`https://ipinfo.io/json?token=${process.env.IPINFO_IO_TOKEN}`);
@@ -46,6 +46,87 @@ export async function getClientLocationFromIP(req) {
     return null;
   }
 }
+*/
+
+// 📦 Import pour Node classique
+
+// ✅ On détecte si on est dans Vercel
+const isVercel = process.env.VERCEL === "1";
+
+// ✅ Fonction unique exportée
+export async function getClientLocationFromIP(req) {
+  try {
+    if (isVercel) {
+      // ✅ Cas Vercel : on utilise @vercel/edge
+      const { ipAddress, geolocation } = await import("@vercel/edge");
+
+      const ip = ipAddress(req) || "inconnue";
+      const geo = geolocation(req);
+
+      console.log("📡 [Vercel] IP détectée :", ip);
+      console.log("🌍 [Vercel] Localisation :", geo);
+
+      if (geo && geo.city && geo.country) {
+        return {
+          ip,
+          country: geo.country,
+          countryCode: geo.country_code || geo.country,
+          city: geo.city,
+          lat: geo.latitude,
+          lon: geo.longitude
+        };
+      } else {
+        console.warn("⚠️ [Vercel] Localisation introuvable, fallback.");
+        return fallbackLocation(ip);
+      }
+    } else {
+      // ✅ Cas Node classique (Render, VPS…)
+      const ip =
+        req.headers["x-forwarded-for"]?.split(",")[0] ||
+        req.connection.remoteAddress ||
+        "inconnue";
+
+      const response = await axios.get(
+        `https://ipinfo.io/${ip}/json?token=VOTRE_CLE_API`
+      );
+
+      console.log("📡 [Node] IP détectée :", ip);
+      console.log("🌍 [Node] Localisation :", response.data);
+
+      if (response.data.loc) {
+        const [lat, lon] = response.data.loc.split(",");
+        return {
+          ip,
+          country: response.data.country,
+          countryCode: response.data.country,
+          city: response.data.city,
+          lat: parseFloat(lat),
+          lon: parseFloat(lon)
+        };
+      } else {
+        console.warn("⚠️ [Node] Localisation introuvable, fallback.");
+        return fallbackLocation(ip);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Erreur géolocalisation :", err.message);
+    return fallbackLocation("inconnue");
+  }
+}
+
+// ✅ Fonction fallback : retourne une position par défaut
+function fallbackLocation(ip) {
+  console.warn("🔁 Fallback sur localisation par défaut");
+  return {
+    ip,
+    country: "Togo",
+    countryCode: "TG",
+    city: "Lomé",
+    lat: 6.1725,
+    lon: 1.2314
+  };
+}
+
 
 
 
