@@ -2,7 +2,7 @@
 import axios from "axios";
 
 // ✅ Obtension de la position du client via ipapi
-export async function getClientLocationFromIP() {
+/*export async function getClientLocationFromIP() {
   try {
     const options = {
       method: "GET",
@@ -20,11 +20,30 @@ export async function getClientLocationFromIP() {
       city: response.data.city,
       lat: response.data.latitude,
       lon: response.data.longitude,
-      //country_flag : response.data.location.country_flag
+      country_flag : response.data.location.country_flag
     };
   } catch (err) {
     console.error("Erreur géolocalisation IP :", err.message);
     return null; // fallback
+  }
+}
+*/
+
+export async function getClientLocationFromIP(req) {
+  try {
+    const response = await axios.get(`https://ipinfo.io/json?token=${process.env.IPINFO_IO_TOKEN}`);
+    const [lat, lon] = response.data.loc.split(",");
+   // console.log("response", response)
+    return {
+      country: response.data.country,
+      city: response.data.city,
+      region: response.data.region,
+      lat: parseFloat(lat),
+      lon: parseFloat(lon)
+    };
+  } catch (err) {
+    console.error("Erreur géolocalisation IP :", err.message);
+    return null;
   }
 }
 
@@ -62,26 +81,6 @@ export async function calculateDynamicShipping(sellerLocation, clientLocation, p
 
 
 // ✅ Géocoder l’adresse pour obtenir lat/lon
-/*
-export async function geocodeAddress(address) {
-  try {
-    const query = `${address.address}, ${address.city}, ${address.country}`;
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
-    const response = await axios.get(url);
-
-    if (response.data.length > 0) {
-      return {
-        lat: parseFloat(response.data[0].lat),
-        lon: parseFloat(response.data[0].lon)
-      };
-    } else {
-      throw new Error("Impossible de géocoder cette adresse.");
-    }
-  } catch (err) {
-    console.error("Erreur géocodage:", err.message);
-    throw err;
-  }
-}*/
 
 export async function geocodeAddress(address) {
   try {
