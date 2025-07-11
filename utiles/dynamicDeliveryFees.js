@@ -87,6 +87,8 @@ export async function getClientLocationFromIP(req) {
       `https://ipinfo.io/${ip}?token=${process.env.IPINFO_IO_TOKEN}`
     );
 
+    console.log('response', response)
+
     if (!response.data || !response.data.loc) {
       console.error("Réponse ipinfo invalide:", response.data);
       return null;

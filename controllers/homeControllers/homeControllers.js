@@ -61,7 +61,7 @@ export const get_home_product = async (req, res) => {
        // process.stdout.write("Home discountProducts: " + JSON.stringify(topDiscountedProducts) + "\n");
 
         // Return response
-        responseReturn(res, 200, { products, latestProducts, topRatedProducts, topDiscountedProducts});
+       return responseReturn(res, 200, { products, latestProducts, topRatedProducts, topDiscountedProducts});
     } catch (error) {
         console.error("Error fetching products:", error);
         res.status(500).json({ message: "Error fetching products" });
