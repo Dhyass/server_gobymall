@@ -112,7 +112,7 @@ export async function getClientLocationFromIP(req) {
         lon: 1.2228,
         currency: "XOF",
         language: "fr",
-        country_flag :flag,
+        country_flag :process.env.TOGO_FLAG,
       };
     }
 
