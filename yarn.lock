@@ -894,6 +894,11 @@
   dependencies:
     "@types/webidl-conversions" "*"
 
+"@vercel/edge@^1.2.2":
+  version "1.2.2"
+  resolved "https://registry.yarnpkg.com/@vercel/edge/-/edge-1.2.2.tgz#22647e3333399c9d3e35fbfd49a99d3bfc6ffc5c"
+  integrity sha512-1+y+f6rk0Yc9ss9bRDgz/gdpLimwoRteKHhrcgHvEpjbP1nyT3ByqEMWm2BTcpIO5UtDmIFXc8zdq4LR190PDA==
+
 "@vercel/functions@^2.2.3":
   version "2.2.3"
   resolved "https://registry.yarnpkg.com/@vercel/functions/-/functions-2.2.3.tgz#ec3108a1c1c099e78ae01dea08672fe023a17da6"

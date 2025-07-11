@@ -342,7 +342,7 @@ export const get_card = async (req, res) => {
 
 export const get_card = async (req, res) => {
   const { id } = req.params;
-  const commission = 0; // % commission éventuelle
+  const commission = 5; // % commission éventuelle
 
   // ✅ Vérification ID utilisateur
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -381,7 +381,7 @@ export const get_card = async (req, res) => {
     }
 
     // ✅ Obtenir localisation client via IP
-    const clientLocation = await getClientLocationFromIP();
+    const clientLocation = await getClientLocationFromIP(req);
    //console.log("Localisation client détectée :", clientLocation);
 
     // ✅ Traitement du panier
@@ -797,7 +797,7 @@ async function processCardProducts(cartProducts, commission, clientLocation) {
 export const recalculateCart = async (req, res) => {
   const { customerId, address } = req.body;
 
-  const commission = 0
+  const commission = 5
 
   if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
     return responseReturn(res, 400, { message: "ID client invalide." });
@@ -807,8 +807,6 @@ export const recalculateCart = async (req, res) => {
     // ✅ Géocoder l’adresse client
     const clientLocation = await geocodeAddress(address);
     console.log("Position client (lat/lon) :", clientLocation);
-
-    
 
     // ✅ Récupérer le panier + infos vendeur
     const cartProducts = await cardModel.aggregate([

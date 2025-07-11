@@ -28,7 +28,7 @@ import axios from "axios";
   }
 }
 */
-/*
+
 export async function getClientLocationFromIP(req) {
   try {
     const response = await axios.get(`https://ipinfo.io/json?token=${process.env.IPINFO_IO_TOKEN}`);
@@ -46,27 +46,25 @@ export async function getClientLocationFromIP(req) {
     return null;
   }
 }
-*/
+
 
 // 📦 Import pour Node classique
+/*
+import { geolocation, ipAddress } from "@vercel/edge";
 
-// ✅ On détecte si on est dans Vercel
 const isVercel = process.env.VERCEL === "1";
 
-// ✅ Fonction unique exportée
-export async function getClientLocationFromIP(req) {
+export async function getClientLocationFromIP(req = null) {
   try {
     if (isVercel) {
-      // ✅ Cas Vercel : on utilise @vercel/edge
-      const { ipAddress, geolocation } = await import("@vercel/edge");
+      // ✅ Cas Vercel Edge Runtime
+      const ip = req ? ipAddress(req) : "inconnue";
+      const geo = req ? geolocation(req) : {};
 
-      const ip = ipAddress(req) || "inconnue";
-      const geo = geolocation(req);
+      console.log("📡 [Vercel] IP détectée :", ip);
+      console.log("🌍 [Vercel] Localisation :", geo);
 
-      console.log("📡 [Vercel] IP détectée :", ip);
-      console.log("🌍 [Vercel] Localisation :", geo);
-
-      if (geo && geo.city && geo.country) {
+      if (geo.city && geo.country) {
         return {
           ip,
           country: geo.country,
@@ -81,17 +79,21 @@ export async function getClientLocationFromIP(req) {
       }
     } else {
       // ✅ Cas Node classique (Render, VPS…)
+      if (!req || !req.headers) {
+        console.warn("⚠️ Pas d'objet req valide, fallback.");
+        return fallbackLocation("inconnue");
+      }
       const ip =
         req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.connection.remoteAddress ||
+        req.connection?.remoteAddress ||
         "inconnue";
 
       const response = await axios.get(
         `https://ipinfo.io/${ip}/json?token=VOTRE_CLE_API`
       );
 
-      console.log("📡 [Node] IP détectée :", ip);
-      console.log("🌍 [Node] Localisation :", response.data);
+      console.log("📡 [Node] IP détectée :", ip);
+      console.log("🌍 [Node] Localisation :", response.data);
 
       if (response.data.loc) {
         const [lat, lon] = response.data.loc.split(",");
@@ -109,12 +111,11 @@ export async function getClientLocationFromIP(req) {
       }
     }
   } catch (err) {
-    console.error("❌ Erreur géolocalisation :", err.message);
+    console.error("❌ Erreur géolocalisation :", err.message);
     return fallbackLocation("inconnue");
   }
 }
 
-// ✅ Fonction fallback : retourne une position par défaut
 function fallbackLocation(ip) {
   console.warn("🔁 Fallback sur localisation par défaut");
   return {
@@ -126,10 +127,7 @@ function fallbackLocation(ip) {
     lon: 1.2314
   };
 }
-
-
-
-
+*/
 // ✅ Calcul dynamique des frais d’expédition
 export async function calculateDynamicShipping(sellerLocation, clientLocation, product, quantity) {
   try {
