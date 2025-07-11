@@ -32,7 +32,7 @@ import { countries } from "country-data";
 // ✅ Obtension de la position du client via ipinfo
 
  
-/* export async function getClientLocationFromIP(req) {
+ export async function getClientLocationFromIP(req) {
   try {
     // ✅ Étape 1: détecter l’IP client
     let ip =
@@ -62,6 +62,9 @@ import { countries } from "country-data";
         region: "Maritime",
         lat: 6.1319,
         lon: 1.2228,
+        currency: "XOF",
+        language: "fr",
+        country_flag :process.env.TOGO_FLAG,
       };
     }
 
@@ -79,6 +82,13 @@ import { countries } from "country-data";
 
     const [lat, lon] = response.data.loc.split(",");
 
+    // ✅ Trouver la devise, langue, drapeau
+    const countryInfo = countries[countryCode];
+    const currency = countryInfo?.currencies?.[0] || "USD";
+    const language = countryInfo?.languages?.[0] || "en";
+    const flag = countryInfo?.emoji || "🏳️";
+
+
     return {
       ip,
       country: response.data.country,
@@ -86,15 +96,17 @@ import { countries } from "country-data";
       region: response.data.region,
       lat: parseFloat(lat),
       lon: parseFloat(lon),
+      currency,
+      language,
+      country_flag :flag,
     };
   } catch (err) {
     console.error("Erreur géolocalisation IP :", err.message);
     return null;
   }
 }
-*/
 
-
+/*
 export async function getClientLocationFromIP(req) {
   try {
     // ✅ Récupérer IP et géolocalisation
@@ -150,7 +162,7 @@ export async function getClientLocationFromIP(req) {
     return null;
   }
 }
-
+*/
 // 📦 Import pour Node classique
 /*
 import { geolocation, ipAddress } from "@vercel/edge";
