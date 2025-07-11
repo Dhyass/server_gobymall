@@ -217,6 +217,9 @@ app.use(cookieParser());
 // ✅ Ajoute ceci :
 app.use(bodyParser.urlencoded({ extended: true }));
 
+/// Active le proxy trust dans ton serveur Express :
+app.set('trust proxy', true);
+
 // Importer et utiliser les routes d'authentification
 app.use('/api', authRoutes);
 app.use('/api', categoryRoutes);

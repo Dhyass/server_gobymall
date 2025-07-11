@@ -29,8 +29,8 @@ export const get_home_Category = async (req, res) => {
     try {
         const categories = await categoryModel.find({});
             // ✅ Obtenir localisation client via IP
-        const clientLocation = await getClientLocationFromIP();
-        //console.log("Localisation client détectée :", clientLocation);
+        const clientLocation = await getClientLocationFromIP(req);
+        console.log("Localisation client détectée :", clientLocation);
         responseReturn(res, 200, { categories, clientLocation});
     } catch (error) {
         console.error("Error fetching categories:", error);
@@ -203,7 +203,7 @@ export const get_product = async (req, res) => {
 
        // console.log( 'more products', moreProducts)
 
-       const clientLocation = await getClientLocationFromIP();
+       const clientLocation = await getClientLocationFromIP(req);
        console.log("Localisation client détectée :", clientLocation);
 
         /// seller info 
@@ -227,18 +227,22 @@ export const get_product = async (req, res) => {
                shippingFee = deliveryFee*quantity; // ✅ Multiplier par quantité
              } else if (deliveryType === "negotiable") {
                shippingFee = "negotiable";
-             } else if (deliveryType === "dynamic" && clientLocation) {
-               shippingFee = await calculateDynamicShipping(
-                 sellerLocation,
-                 clientLocation,
-                 product,
-                 quantity
-               );
-               console.log('shipping fees', shippingFee)
-             }
+             } if (deliveryType === "dynamic" && clientLocation) {
+                shippingFee = await calculateDynamicShipping(
+                sellerLocation,
+                clientLocation,
+                product,
+                quantity
+                );
+                console.log('shipping fees', shippingFee);
+                } else if (deliveryType === "dynamic" && !clientLocation) {
+                shippingFee = "unknown"; // ou fallback à un tarif par défaut
+                console.warn("Localisation client indisponible, frais dynamique impossible");
+            }
+
 
     //console.log("product:", product);
-    responseReturn(res, 200,{ message: "Produit non trouvé" , product, moreProducts, relatedProducts, shippingFee});
+  return  responseReturn(res, 200,{ message: "Produit trouvé" , product, moreProducts, relatedProducts, shippingFee, clientLocation});
     
 } catch (error) {
     console.error("Error fetching product:", error);

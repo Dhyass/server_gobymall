@@ -28,7 +28,7 @@ import axios from "axios";
   }
 }
 */
-
+/*
 export async function getClientLocationFromIP(req) {
   try {
     const response = await axios.get(`https://ipinfo.io/json?token=${process.env.IPINFO_IO_TOKEN}`);
@@ -40,6 +40,67 @@ export async function getClientLocationFromIP(req) {
       region: response.data.region,
       lat: parseFloat(lat),
       lon: parseFloat(lon)
+    };
+  } catch (err) {
+    console.error("Erreur géolocalisation IP :", err.message);
+    return null;
+  }
+}
+*/
+
+
+export async function getClientLocationFromIP(req) {
+  try {
+    // ✅ Étape 1: détecter l’IP client
+    let ip =
+      req.headers["x-forwarded-for"] || // Render/Vercel
+      req.socket?.remoteAddress || // Local/dev
+      req.connection?.remoteAddress ||
+      null;
+
+    // Si plusieurs IP (proxy), prendre la première
+    if (ip && ip.includes(",")) {
+      ip = ip.split(",")[0].trim();
+    }
+
+    // Retirer préfixe IPv6 "::ffff:"
+    if (ip && ip.startsWith("::ffff:")) {
+      ip = ip.substring(7);
+    }
+
+   // console.log("Client IP détectée:", ip);
+
+    // ✅ Étape 2: éviter localhost en dev
+    if (!ip || ip === "::1" || ip === "127.0.0.1") {
+      console.warn("IP locale détectée, géolocalisation simulée");
+      return {
+        country: "TG", // Exemple : Togo
+        city: "Lomé",
+        region: "Maritime",
+        lat: 6.1319,
+        lon: 1.2228,
+      };
+    }
+
+    // ✅ Étape 3: appeler ipinfo.io pour l’IP publique
+    const response = await axios.get(
+      `https://ipinfo.io/${ip}?token=${process.env.IPINFO_IO_TOKEN}`
+    );
+
+    if (!response.data || !response.data.loc) {
+      console.error("Réponse ipinfo invalide:", response.data);
+      return null;
+    }
+
+    const [lat, lon] = response.data.loc.split(",");
+
+    return {
+      ip,
+      country: response.data.country,
+      city: response.data.city,
+      region: response.data.region,
+      lat: parseFloat(lat),
+      lon: parseFloat(lon),
     };
   } catch (err) {
     console.error("Erreur géolocalisation IP :", err.message);
