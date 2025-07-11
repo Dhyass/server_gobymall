@@ -1,6 +1,6 @@
 
 import axios from "axios";
-
+import { countries } from "country-data";
 // ✅ Obtension de la position du client via ipapi
 /*export async function getClientLocationFromIP() {
   try {
@@ -28,28 +28,11 @@ import axios from "axios";
   }
 }
 */
-/*
-export async function getClientLocationFromIP(req) {
-  try {
-    const response = await axios.get(`https://ipinfo.io/json?token=${process.env.IPINFO_IO_TOKEN}`);
-    const [lat, lon] = response.data.loc.split(",");
-   // console.log("response", response)
-    return {
-      country: response.data.country,
-      city: response.data.city,
-      region: response.data.region,
-      lat: parseFloat(lat),
-      lon: parseFloat(lon)
-    };
-  } catch (err) {
-    console.error("Erreur géolocalisation IP :", err.message);
-    return null;
-  }
-}
-*/
 
+// ✅ Obtension de la position du client via ipinfo
 
-export async function getClientLocationFromIP(req) {
+ 
+/* export async function getClientLocationFromIP(req) {
   try {
     // ✅ Étape 1: détecter l’IP client
     let ip =
@@ -87,7 +70,7 @@ export async function getClientLocationFromIP(req) {
       `https://ipinfo.io/${ip}?token=${process.env.IPINFO_IO_TOKEN}`
     );
 
-    console.log('response', response)
+   // console.log('response', response)
 
     if (!response.data || !response.data.loc) {
       console.error("Réponse ipinfo invalide:", response.data);
@@ -109,7 +92,64 @@ export async function getClientLocationFromIP(req) {
     return null;
   }
 }
+*/
 
+
+export async function getClientLocationFromIP(req) {
+  try {
+    // ✅ Récupérer IP et géolocalisation
+    let ip = req.headers["x-forwarded-for"] || req.socket?.remoteAddress;
+    if (ip && ip.includes(",")) ip = ip.split(",")[0].trim();
+    if (ip?.startsWith("::ffff:")) ip = ip.substring(7);
+
+    if (!ip || ip === "::1" || ip === "127.0.0.1") {
+      console.warn("IP locale détectée, géolocalisation simulée");
+      return {
+        country: "TG",
+        city: "Lomé",
+        region: "Maritime",
+        lat: 6.1319,
+        lon: 1.2228,
+        currency: "XOF",
+        language: "fr",
+        country_flag :flag,
+      };
+    }
+
+    const response = await axios.get(
+      `https://ipinfo.io/${ip}?token=${process.env.IPINFO_IO_TOKEN}`
+    );
+
+    if (!response.data || !response.data.loc) {
+      console.error("Réponse ipinfo invalide:", response.data);
+      return null;
+    }
+
+    const [lat, lon] = response.data.loc.split(",");
+    const countryCode = response.data.country;
+
+    // ✅ Trouver la devise, langue, drapeau
+    const countryInfo = countries[countryCode];
+    const currency = countryInfo?.currencies?.[0] || "USD";
+    const language = countryInfo?.languages?.[0] || "en";
+    const flag = countryInfo?.emoji || "🏳️";
+
+    return {
+      ip,
+      country: countryCode,
+      city: response.data.city,
+      region: response.data.region,
+      lat: parseFloat(lat),
+      lon: parseFloat(lon),
+      currency,
+      language,
+      country_flag :flag,
+    };
+  } catch (err) {
+    console.error("Erreur géolocalisation IP :", err.message);
+    return null;
+  }
+}
 
 // 📦 Import pour Node classique
 /*
