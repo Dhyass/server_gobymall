@@ -1,6 +1,6 @@
 
 import axios from "axios";
-import { countries } from "country-data";
+//import { countries } from "country-data";
 // ✅ Obtension de la position du client via ipapi
 /*export async function getClientLocationFromIP() {
   try {
@@ -62,9 +62,7 @@ import { countries } from "country-data";
         region: "Maritime",
         lat: 6.1319,
         lon: 1.2228,
-        currency: "XOF",
-        language: "fr",
-        country_flag :process.env.TOGO_FLAG,
+
       };
     }
 
@@ -82,12 +80,7 @@ import { countries } from "country-data";
 
     const [lat, lon] = response.data.loc.split(",");
 
-    // ✅ Trouver la devise, langue, drapeau
-    const countryInfo = countries[countryCode];
-    const currency = countryInfo?.currencies?.[0] || "USD";
-    const language = countryInfo?.languages?.[0] || "en";
-    const flag = countryInfo?.emoji || "🏳️";
-
+   
 
     return {
       ip,
@@ -96,9 +89,6 @@ import { countries } from "country-data";
       region: response.data.region,
       lat: parseFloat(lat),
       lon: parseFloat(lon),
-      currency,
-      language,
-      country_flag :flag,
     };
   } catch (err) {
     console.error("Erreur géolocalisation IP :", err.message);
