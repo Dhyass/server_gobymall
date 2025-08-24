@@ -2,8 +2,13 @@
 import mongoose from "mongoose";
 import cardModel from "../../models/cardModel.js";
 import Product from "../../models/productModel.js";
+import sellerModel from "../../models/sellerModel.js";
 import WishlistModel from "../../models/wishlistModel.js";
-import { calculateDynamicShipping, geocodeAddress, getClientLocationFromIP } from "../../utiles/dynamicDeliveryFees.js";
+import {
+  calculateDynamicShipping,
+  geocodeAddress,
+  getClientLocationFromIP
+} from "../../utiles/dynamicDeliveryFees.js";
 import { responseReturn } from "../../utiles/response.js";
 
 
@@ -12,7 +17,7 @@ export const add_to_card = async (req, res) => {
   const { customerId, productId, quantity, selectedVariant } = req.body;
 
   try {
-    // ✅ Vérification des IDs
+    // Vérification des IDs
     if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
       return responseReturn(res, 400, { message: "ID client invalide." });
     }
@@ -25,7 +30,7 @@ export const add_to_card = async (req, res) => {
       return responseReturn(res, 404, { message: "Produit introuvable." });
     }
 
-    // ✅ Vérifier le stock réel
+    //  Vérifier le stock réel
     let stockAvailable = product.stock;
     let priceToUse = product.price;
     let variantImage = product.thumbnail;
@@ -89,7 +94,7 @@ export const add_to_card = async (req, res) => {
       selectedVariant: selectedVariant ? {
         color: selectedVariant.color,
         size: selectedVariant.size,
-        variantPrice: priceToUse,
+        variantPrice: parseFloat(priceToUse),
         variantImage: variantImage,
         variantStock: stockAvailable
       } : undefined
@@ -107,13 +112,10 @@ export const add_to_card = async (req, res) => {
   }
 };
 
-
-
-
 export const delete_card_product = async (req, res) => {
     const  id  = req.params.cardId; // ID du produit à supprimer
 
-    console.log('id :', id);
+   // console.log('id :', id);
 
     try {
         // Vérifiez si l'ID est valide
@@ -141,9 +143,6 @@ export const update_product_quantity = async (req, res) => {
     const id = req.params.cardId; // ID du produit à modifier
     const state = req.body.state; // Nouveau stock
     const newQuantity=req.body.newQuantity
-    //console.log('id :', id);
-    //console.log('state etat :', state);
-    //console.log('newQuantity', newQuantity)
 
     try {
         // Vérifiez si l'ID est valide
@@ -342,7 +341,7 @@ export const get_card = async (req, res) => {
 
 export const get_card = async (req, res) => {
   const { id } = req.params;
-  const commission = 5; // % commission éventuelle
+  const commission = 0; // % commission éventuelle
 
   // ✅ Vérification ID utilisateur
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -376,9 +375,18 @@ export const get_card = async (req, res) => {
       { $unwind: "$sellerInfo" },
     ]);
 
+    
     if (cartProducts.length === 0) {
       return responseReturn(res, 404, { message: "Votre panier est vide." });
     }
+    
+   /*
+   if (cartProducts.length === 0) {
+    return responseReturn(res, 201, {
+      code: 'EMPTY_CART',
+      message: 'Votre panier est vide.',
+    });
+  }*/
 
     // ✅ Obtenir localisation client via IP
     const clientLocation = await getClientLocationFromIP(req);
@@ -393,6 +401,300 @@ export const get_card = async (req, res) => {
     return responseReturn(res, 500, { message: "Erreur interne du serveur." });
   }
 };
+/*
+async function processCardProducts(cartProducts, commission, clientLocation) {
+  let buyProductsTotal = 0;
+  let calculatePrice = 0;
+  let cartTotal = 0;
+  const outOfStockProducts = [];
+  const stockProducts = [];
+  const sellerMap = new Map();
+
+  for (const item of cartProducts) {
+    const product = item.productInfo;
+    const sellerLocation = item.sellerInfo.shopInfo;
+
+    // ✅ Vérification live stock / prix
+    let stockLive = product.stock;
+    let priceLive = product.price;
+    let imageLive = product.thumbnail;
+
+    if (item.selectedVariant) {
+      const variantInProduct = product.variants.find(
+        (v) =>
+          v.color === item.selectedVariant.color &&
+          v.size === item.selectedVariant.size
+      );
+
+      if (variantInProduct) {
+        stockLive = variantInProduct.variantStock;
+        priceLive = variantInProduct.variantPrice ?? product.price;
+        imageLive = variantInProduct.variantImage ?? product.thumbnail;
+
+        // ✅ Mettre à jour les infos dans le panier
+        await cardModel.updateOne(
+          { _id: item._id },
+          {
+            $set: {
+              "selectedVariant.variantStock": stockLive,
+              "selectedVariant.variantPrice": priceLive,
+              "selectedVariant.variantImage": imageLive,
+            },
+          }
+        );
+      } else {
+        stockLive = 0; // Variante supprimée
+      }
+    }
+
+    const quantity = item.quantity;
+
+    if (stockLive < quantity) {
+      outOfStockProducts.push({
+        ...item,
+        productInfo: {
+          ...product,
+          stock: stockLive,
+          price: priceLive,
+          image: imageLive,
+        },
+      });
+    } else {
+      stockProducts.push({
+        ...item,
+        productInfo: {
+          ...product,
+          stock: stockLive,
+          price: priceLive,
+          image: imageLive,
+        },
+      });
+
+      buyProductsTotal += quantity;
+      cartTotal += quantity;
+
+      const sellerId = product.sellerId.toString();
+      const shopName = sellerLocation.shopName;
+      const deliveryType = product.deliveryType; // free, fixed, negotiable, dynamic
+      const deliveryFee = product.deliveryFee ?? 0;
+
+      const priceAfterDiscount =
+        priceLive * (1 - (product.discount || 0) / 100);
+      const finalPrice = priceAfterDiscount * (1 - commission / 100);
+
+      if (!sellerMap.has(sellerId)) {
+        sellerMap.set(sellerId, {
+          sellerId,
+          shopName,
+          price: 0,
+          shippingFee: 0,
+          deliveryType,
+          products: [],
+        });
+      }
+
+      const seller = sellerMap.get(sellerId);
+
+      // ✅ Calcul des frais selon deliveryType
+      let shippingFee = 0;
+
+      if (deliveryType === "free") {
+        shippingFee = 0;
+      } else if (deliveryType === "fixed") {
+        shippingFee = deliveryFee * quantity; // ✅ Multiplier par quantité
+      } else if (deliveryType === "negotiable") {
+        shippingFee = "negotiable";
+      } else if (deliveryType === "dynamic" && clientLocation) {
+        shippingFee = await calculateDynamicShipping(
+          sellerLocation,
+          clientLocation,
+          product,
+          quantity
+        );
+      }
+
+      seller.shippingFee +=
+        typeof shippingFee === "number" ? shippingFee : 0;
+      seller.price += finalPrice * quantity;
+      seller.products.push({
+        ...item,
+        productInfo: {
+          ...product,
+          price: priceAfterDiscount,
+          image: imageLive,
+        },
+      });
+
+      calculatePrice += finalPrice * quantity;
+    }
+  }
+
+  return {
+    card_total: cartTotal,
+    buy_products_total: buyProductsTotal,
+    price: calculatePrice.toFixed(2),
+    outOfStock_products: outOfStockProducts,
+    card_products: Array.from(sellerMap.values()),
+    shipping_fee: Array.from(sellerMap.values()).reduce(
+      (acc, s) =>
+        acc + (typeof s.shippingFee === "number" ? s.shippingFee : 0),
+      0
+    ),
+  };
+}
+*/
+
+async function processCardProducts(cartProducts, commission, clientLocation) {
+  let buyProductsTotal = 0;
+  let cartTotal = 0;
+  let calculatePrice = 0;
+  const outOfStockProducts = [];
+  const stockProducts = [];
+  const sellerMap = new Map();
+
+  for (const item of cartProducts) {
+    const product = item.productInfo;
+    const sellerLocation = item.sellerInfo.shopInfo;
+
+    // Infos live par défaut
+    let stockLive = product.stock;
+    let priceLive = product.price;
+    let imageLive = product.thumbnail;
+
+    // ✅ Si variante sélectionnée
+    if (item.selectedVariant) {
+      const variantInProduct = product.variants.find(
+        (v) =>
+          v.color === item.selectedVariant.color &&
+          v.size === item.selectedVariant.size
+      );
+
+      if (variantInProduct) {
+        stockLive = variantInProduct.variantStock;
+        priceLive = variantInProduct.variantPrice ?? product.price;
+        imageLive = variantInProduct.variantImage.url ?? product.thumbnail;
+
+        // 🔄 Mettre à jour les infos du panier (stock, prix, image)
+        await cardModel.updateOne(
+          { _id: item._id },
+          {
+            $set: {
+              "selectedVariant.variantStock": stockLive,
+              "selectedVariant.variantPrice": priceLive,
+              "selectedVariant.variantImage": imageLive,
+            },
+          }
+        );
+      } else {
+        stockLive = 0; // Variante supprimée ou non trouvée
+      }
+    }
+
+    const quantity = item.quantity;
+
+    if (stockLive < quantity) {
+      // ❌ Stock insuffisant
+      outOfStockProducts.push({
+        ...item,
+        productInfo: {
+          ...product,
+          stock: stockLive,
+          price: priceLive,
+          image: imageLive,
+        },
+      });
+      continue;
+    }
+
+    // ✅ Produit en stock
+    stockProducts.push({
+      ...item,
+      productInfo: {
+        ...product,
+        stock: stockLive,
+        price: priceLive,
+        image: imageLive,
+      },
+    });
+
+    buyProductsTotal += quantity;
+    cartTotal += quantity;
+
+    const sellerId = product.sellerId.toString();
+    const shopName = sellerLocation.shopName;
+    const deliveryType = product.deliveryType; // free, fixed, negotiable, dynamic
+    const deliveryFee = product.deliveryFee ?? 0;
+
+    const priceAfterDiscount = priceLive * (1 - (product.discount || 0) / 100);
+    const finalPrice = priceAfterDiscount * (1 - commission / 100);
+
+   console.log('final price ', finalPrice);
+
+    // Initialiser le groupe vendeur si pas encore fait
+    if (!sellerMap.has(sellerId)) {
+      sellerMap.set(sellerId, {
+        sellerId,
+        shopName,
+        price: 0,
+        shippingFee: 0,
+        deliveryType,
+        products: [],
+      });
+    }
+
+    const seller = sellerMap.get(sellerId);
+
+    // ✅ Calcul des frais de livraison
+    let shippingFee = 0;
+    if (deliveryType === "free") {
+      shippingFee = 0;
+    } else if (deliveryType === "fixed") {
+      shippingFee = deliveryFee * quantity; // en fonction de la quantité
+    } else if (deliveryType === "negotiable") {
+      shippingFee = "negotiable";
+    } else if (deliveryType === "dynamic" && clientLocation) {
+      shippingFee = await calculateDynamicShipping(
+        sellerLocation,
+        clientLocation,
+        product,
+        quantity
+      );
+    }
+
+    // Ajout du prix et des frais de livraison
+    seller.shippingFee +=
+      typeof shippingFee === "number" ? shippingFee : 0;
+    seller.price += finalPrice * quantity;
+
+    // Ajouter le produit dans le groupe vendeur
+    seller.products.push({
+      ...item,
+      item_ShippingFee: typeof shippingFee === "number" ? shippingFee : 0,
+      productInfo: {
+        ...product,
+        price: priceAfterDiscount,
+        image: imageLive,
+      },
+    });
+
+    calculatePrice += finalPrice * quantity;
+  }
+
+  const shippingFeeTotal = Array.from(sellerMap.values()).reduce(
+    (acc, seller) =>
+      acc + (typeof seller.shippingFee === "number" ? seller.shippingFee : 0),
+    0
+  );
+
+  return {
+    card_total: cartTotal,
+    buy_products_total: buyProductsTotal,
+    price: calculatePrice.toFixed(2),
+    shipping_fee: shippingFeeTotal,
+    outOfStock_products: outOfStockProducts,
+    card_products: Array.from(sellerMap.values()),
+  };
+}
 
 
 /*
@@ -651,164 +953,20 @@ async function processCardProducts(cartProducts, commission) {
 }
 */
 
-async function processCardProducts(cartProducts, commission, clientLocation) {
-  let buyProductsTotal = 0;
-  let calculatePrice = 0;
-  let cartTotal = 0;
-  const outOfStockProducts = [];
-  const stockProducts = [];
-  const sellerMap = new Map();
-
-  for (const item of cartProducts) {
-    const product = item.productInfo;
-    const sellerLocation = item.sellerInfo.shopInfo;
-
-    // ✅ Vérification live stock / prix
-    let stockLive = product.stock;
-    let priceLive = product.price;
-    let imageLive = product.thumbnail;
-
-    if (item.selectedVariant) {
-      const variantInProduct = product.variants.find(
-        (v) =>
-          v.color === item.selectedVariant.color &&
-          v.size === item.selectedVariant.size
-      );
-
-      if (variantInProduct) {
-        stockLive = variantInProduct.variantStock;
-        priceLive = variantInProduct.variantPrice ?? product.price;
-        imageLive = variantInProduct.variantImage ?? product.thumbnail;
-
-        // ✅ Mettre à jour les infos dans le panier
-        await cardModel.updateOne(
-          { _id: item._id },
-          {
-            $set: {
-              "selectedVariant.variantStock": stockLive,
-              "selectedVariant.variantPrice": priceLive,
-              "selectedVariant.variantImage": imageLive,
-            },
-          }
-        );
-      } else {
-        stockLive = 0; // Variante supprimée
-      }
-    }
-
-    const quantity = item.quantity;
-
-    if (stockLive < quantity) {
-      outOfStockProducts.push({
-        ...item,
-        productInfo: {
-          ...product,
-          stock: stockLive,
-          price: priceLive,
-          image: imageLive,
-        },
-      });
-    } else {
-      stockProducts.push({
-        ...item,
-        productInfo: {
-          ...product,
-          stock: stockLive,
-          price: priceLive,
-          image: imageLive,
-        },
-      });
-
-      buyProductsTotal += quantity;
-      cartTotal += quantity;
-
-      const sellerId = product.sellerId.toString();
-      const shopName = sellerLocation.shopName;
-      const deliveryType = product.deliveryType; // free, fixed, negotiable, dynamic
-      const deliveryFee = product.deliveryFee ?? 0;
-
-      const priceAfterDiscount =
-        priceLive * (1 - (product.discount || 0) / 100);
-      const finalPrice = priceAfterDiscount * (1 - commission / 100);
-
-      if (!sellerMap.has(sellerId)) {
-        sellerMap.set(sellerId, {
-          sellerId,
-          shopName,
-          price: 0,
-          shippingFee: 0,
-          deliveryType,
-          products: [],
-        });
-      }
-
-      const seller = sellerMap.get(sellerId);
-
-      // ✅ Calcul des frais selon deliveryType
-      let shippingFee = 0;
-
-      if (deliveryType === "free") {
-        shippingFee = 0;
-      } else if (deliveryType === "fixed") {
-        shippingFee = deliveryFee * quantity; // ✅ Multiplier par quantité
-      } else if (deliveryType === "negotiable") {
-        shippingFee = "negotiable";
-      } else if (deliveryType === "dynamic" && clientLocation) {
-        shippingFee = await calculateDynamicShipping(
-          sellerLocation,
-          clientLocation,
-          product,
-          quantity
-        );
-      }
-
-      seller.shippingFee +=
-        typeof shippingFee === "number" ? shippingFee : 0;
-      seller.price += finalPrice * quantity;
-      seller.products.push({
-        ...item,
-        productInfo: {
-          ...product,
-          price: priceAfterDiscount,
-          image: imageLive,
-        },
-      });
-
-      calculatePrice += finalPrice * quantity;
-    }
-  }
-
-  return {
-    card_total: cartTotal,
-    buy_products_total: buyProductsTotal,
-    price: calculatePrice.toFixed(2),
-    outOfStock_products: outOfStockProducts,
-    card_products: Array.from(sellerMap.values()),
-    shipping_fee: Array.from(sellerMap.values()).reduce(
-      (acc, s) =>
-        acc + (typeof s.shippingFee === "number" ? s.shippingFee : 0),
-      0
-    ),
-  };
-}
-
-
 // ✅ Fonction pour recalculer le panier
+
+/*
 export const recalculateCart = async (req, res) => {
   const { customerId, address } = req.body;
-
-  const commission = 5
+  const commission = 0;
 
   if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
     return responseReturn(res, 400, { message: "ID client invalide." });
   }
 
   try {
-    // ✅ Géocoder l’adresse client
     const clientLocation = await geocodeAddress(address);
-    console.log("Position client (lat/lon) :", clientLocation);
 
-    // ✅ Récupérer le panier + infos vendeur
     const cartProducts = await cardModel.aggregate([
       { $match: { customerId: mongoose.Types.ObjectId.createFromHexString(customerId) } },
       {
@@ -835,8 +993,8 @@ export const recalculateCart = async (req, res) => {
       return responseReturn(res, 404, { message: "Votre panier est vide." });
     }
 
-    // ✅ Recalculer avec la position exacte
-    const result = await processCardProducts(cartProducts,  commission, clientLocation);
+    // ✅ Calcul détaillé (frais livraison + mise à jour en base)
+    const result = await processCardProducts(cartProducts, commission, clientLocation);
 
     return responseReturn(res, 200, {
       message: "Panier recalculé avec succès.",
@@ -848,7 +1006,93 @@ export const recalculateCart = async (req, res) => {
   }
 };
 
+*/
 
+export const recalculateCart = async (req, res) => {
+  const { customerId, address, inlineProducts } = req.body;
+  const commission = 0;
+
+  if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
+    return responseReturn(res, 400, { message: "ID client invalide." });
+  }
+
+  try {
+    // Normaliser l'adresse
+    const normalizedAddress = {
+      country: address?.country,
+      city: address?.city,
+      area: address?.area ?? address?.region ?? "",
+      region: address?.region ?? address?.area ?? "",
+      postalCode: address?.postalCode,
+      address: address?.address,
+    };
+
+    const clientLocation = await geocodeAddress(normalizedAddress);
+
+    let productsToProcess = [];
+
+    if (Array.isArray(inlineProducts) && inlineProducts.length > 0) {
+      console.log("Mode BUY NOW - recalcul sans DB", inlineProducts);
+
+      // ⚠️ Récupérer le vendeur complet (un seul vendeur en BUY NOW)
+      const seller = await sellerModel.findById(inlineProducts[0].sellerId).lean();
+      if (!seller) {
+        return responseReturn(res, 404, { message: "Vendeur introuvable." });
+      }
+
+      // Adapter inlineProducts
+      productsToProcess = inlineProducts.flatMap(group =>
+        group.products.map(p => ({
+          customerId: mongoose.Types.ObjectId.createFromHexString(customerId),
+          quantity: p.quantity,
+          selectedVariant: p.selectedVariant || null,
+          productInfo: p.productInfo,   // déjà complet depuis le front
+          sellerInfo: seller            // 👈 structure identique à l’aggregate ($lookup)
+        }))
+      );
+    } else {
+      // ✅ Cas PANIER classique (DB)
+      const cartProducts = await cardModel.aggregate([
+        { $match: { customerId: mongoose.Types.ObjectId.createFromHexString(customerId) } },
+        {
+          $lookup: {
+            from: "products",
+            localField: "productId",
+            foreignField: "_id",
+            as: "productInfo"
+          }
+        },
+        { $unwind: "$productInfo" },
+        {
+          $lookup: {
+            from: "sellers",
+            localField: "productInfo.sellerId",
+            foreignField: "_id",
+            as: "sellerInfo"
+          }
+        },
+        { $unwind: "$sellerInfo" },
+      ]);
+
+      if (cartProducts.length === 0) {
+        return responseReturn(res, 404, { message: "Votre panier est vide." });
+      }
+
+      productsToProcess = cartProducts;
+    }
+
+    // ✅ Calcul (inline ou DB)
+    const result = await processCardProducts(productsToProcess, commission, clientLocation);
+
+    return responseReturn(res, 200, {
+      message: "Recalcul effectué avec succès.",
+      ...result
+    });
+  } catch (err) {
+    console.error("Erreur recalcul checkout:", err.message);
+    return responseReturn(res, 500, { message: "Erreur lors du recalcul." });
+  }
+};
 
 export const add_to_wishlist = async (req, res) => {
     //const {customerId, productId} = req.body;
@@ -881,7 +1125,6 @@ export const add_to_wishlist = async (req, res) => {
 }
 
 };
-
 
 export const get_wishlist_products = async (req, res) => {
     //console.log('customerId ', req.params.customerId);
@@ -1630,7 +1873,6 @@ function processCardProducts(cartProducts, commission) {
 }
 
 */
-
 
 /*
 export const get_card = async (req, res) => {

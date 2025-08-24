@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
+import mongoose from 'mongoose';
 import qs from 'qs';
 import productModel from '../../models/productModel.js';
 import { responseReturn } from '../../utiles/response.js';
@@ -12,8 +13,7 @@ cloudinary.config({
     secure: true
 });
 
-
-
+/*
 export const add_product = async (req, res) => {
   try {
     const parsedBody = qs.parse(req.body);
@@ -47,7 +47,7 @@ export const add_product = async (req, res) => {
     const trimmedName = name.trim();
     const slug = trimmedName.split(" ").join("-").toLowerCase();
 
-    // ✅ Gestion des images produit
+    //  Gestion des images produit
     const productImages = req.files['images[]'] || [];
     if (productImages.length === 0) {
       return responseReturn(res, 400, { message: "Au moins une image produit est requise." });
@@ -116,6 +116,8 @@ export const add_product = async (req, res) => {
       }
     }
 
+    ///
+
     // ✅ Création du produit
     const product = await productModel.create({
       sellerId: req.user.id,
@@ -143,6 +145,319 @@ export const add_product = async (req, res) => {
     });
 
     console.log('✅ Produit créé avec succès :', product);
+
+    return responseReturn(res, 200, {
+      message: "Produit ajouté avec succès.",
+      product
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur add_product :", error);
+    return responseReturn(res, 500, { message: "Erreur interne lors de l'ajout du produit.", error: error.message });
+  }
+};
+*/
+
+/*
+export const add_product = async (req, res) => {
+  try {
+    const parsedBody = qs.parse(req.body);
+
+    if (!req.user || !req.user.id) {
+      return responseReturn(res, 401, { message: "Utilisateur non authentifié." });
+    }
+
+    const {
+      name,
+      description,
+      discount,
+      price,
+      brand,
+      stock,
+      category,
+      shopName,
+      tags,
+      deliveryType,
+      deliveryFee,
+      estimatedDeliveryTime,
+      weight,
+      dimensions,
+      variants,
+    } = parsedBody;
+
+    if (!name || !price || !stock || !category || !shopName) {
+      return responseReturn(res, 400, { message: "Champs obligatoires manquants." });
+    }
+
+    const trimmedName = name.trim();
+    const slug = trimmedName.split(" ").join("-").toLowerCase();
+
+    // ✅ Images produit
+    const productImages = req.files['images[]'] || [];
+    if (productImages.length === 0) {
+      return responseReturn(res, 400, { message: "Au moins une image produit est requise." });
+    }
+    if (productImages.length > 4) {
+      return responseReturn(res, 400, { message: "Maximum 4 images produit autorisées." });
+    }
+
+    const folderPath = `GOBYMALL/${shopName.trim().replace(/\s+/g, '_')}/${category.trim().replace(/\s+/g, '_')}`;
+    const imageUploads = await Promise.allSettled(
+      productImages.map(file =>
+        cloudinary.uploader.upload(file.path, {
+          folder: folderPath,
+          public_id: `${slug}-${Date.now()}`
+        }).then(result => {
+          fs.promises.unlink(file.path).catch(console.error);
+          return { url: result.secure_url, public_id: result.public_id };
+        })
+      )
+    );
+
+    const images = imageUploads.filter(r => r.status === "fulfilled").map(r => r.value);
+    if (images.length !== productImages.length) {
+      return responseReturn(res, 400, { message: "Erreur lors de l'upload des images produit." });
+    }
+
+    // ✅ Tags
+    const normalizedTags = Array.isArray(tags) ? tags : tags ? [tags] : [];
+
+    // ✅ Variantes avec id et image structurée
+    const variantImages = req.files['variantImage'] || [];
+    const normalizedVariants = [];
+
+    if (variants && Array.isArray(variants) && variants.length > 0) {
+      for (let i = 0; i < variants.length; i++) {
+        const variant = variants[i];
+
+        const stockValue = parseInt(variant.variantStock);
+        if (isNaN(stockValue)) {
+          return responseReturn(res, 400, { message: `Le stock est obligatoire pour la variante ${i + 1}.` });
+        }
+
+        let variantPrice = parseFloat(variant.variantPrice);
+        if (isNaN(variantPrice) || variantPrice <= 0) {
+          variantPrice = parseFloat(price);
+        }
+
+        let variantImage = null;
+        if (variantImages[i]) {
+          const uploadResult = await cloudinary.uploader.upload(variantImages[i].path, {
+            folder: `${folderPath}/variants`,
+            public_id: `${slug}-variant-${i}-${Date.now()}`
+          });
+
+          await fs.promises.unlink(variantImages[i].path).catch(console.error);
+          variantImage = {
+            url: uploadResult.secure_url,
+            public_id: uploadResult.public_id,
+            _id: new mongoose.Types.ObjectId()
+          };
+        }
+
+        normalizedVariants.push({
+          _id: new mongoose.Types.ObjectId(),
+          color: variant.color,
+          size: variant.size,
+          variantPrice,
+          variantStock: stockValue,
+          variantImage
+        });
+      }
+    }
+
+    // ✅ Création du produit
+    const product = await productModel.create({
+      sellerId: req.user.id,
+      name: trimmedName,
+      slug,
+      description: description?.trim(),
+      discount: parseFloat(discount) || 0,
+      price: parseFloat(price),
+      brand: brand?.trim(),
+      stock: parseInt(stock),
+      category: category.trim(),
+      shopName: shopName.trim(),
+      images,
+      tags: normalizedTags,
+      variants: normalizedVariants,
+      deliveryType,
+      deliveryFee: parseFloat(deliveryFee) || 0,
+      estimatedDeliveryTime: estimatedDeliveryTime?.trim(),
+      weight: parseFloat(weight) || undefined,
+      dimensions: dimensions ? {
+        length: parseFloat(dimensions.length) || 0,
+        width: parseFloat(dimensions.width) || 0,
+        height: parseFloat(dimensions.height) || 0,
+      } : undefined,
+    });
+
+   // console.log('✅ Produit créé avec succès :', product);
+
+    return responseReturn(res, 200, {
+      message: "Produit ajouté avec succès.",
+      product
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur add_product :", error);
+    return responseReturn(res, 500, { message: "Erreur interne lors de l'ajout du produit.", error: error.message });
+  }
+};
+*/
+
+export const add_product = async (req, res) => {
+  try {
+    const parsedBody = qs.parse(req.body);
+
+    if (!req.user || !req.user.id) {
+      return responseReturn(res, 401, { message: "Utilisateur non authentifié." });
+    }
+
+    const {
+      name,
+      description,
+      discount,
+      price,
+      brand,
+      stock,
+      category,
+      shopName,
+      tags,
+      deliveryType,
+      deliveryFee,
+      estimatedDeliveryTime,
+      weight,
+      dimensions,
+      variants,
+    } = parsedBody;
+
+    if (!name || !price || !stock || !category || !shopName) {
+      return responseReturn(res, 400, { message: "Champs obligatoires manquants." });
+    }
+
+    const trimmedName = name.trim();
+    const slug = trimmedName.split(" ").join("-").toLowerCase();
+    const folderPath = `GOBYMALL/${shopName.trim().replace(/\s+/g, '_')}/${category.trim().replace(/\s+/g, '_')}`;
+
+    //  Upload images produit
+    const productImages = req.files['images[]'] || [];
+    if (productImages.length === 0) {
+      return responseReturn(res, 400, { message: "Au moins une image produit est requise." });
+    }
+    if (productImages.length > 4) {
+      return responseReturn(res, 400, { message: "Maximum 4 images produit autorisées." });
+    }
+
+    const imageUploads = await Promise.allSettled(
+      productImages.map(file =>
+        cloudinary.uploader.upload(file.path, {
+          folder: folderPath,
+          public_id: `${slug}-${Date.now()}`
+        }).then(result => {
+          fs.promises.unlink(file.path).catch(console.error);
+          return { url: result.secure_url, public_id: result.public_id };
+        })
+      )
+    );
+
+    const images = imageUploads.filter(r => r.status === "fulfilled").map(r => r.value);
+    if (images.length !== productImages.length) {
+      return responseReturn(res, 400, { message: "Erreur lors de l'upload des images produit." });
+    }
+
+    //  Tags
+    const normalizedTags = Array.isArray(tags) ? tags : tags ? [tags] : [];
+
+    //  Traitement des variantes avec ObjectId + image liée
+    const variantImages = req.files['variantImage'] || [];
+    const normalizedVariants = [];
+
+   // console.log('variant Images', variantImages);
+
+ if (Array.isArray(variants) && variants.length > 0) {
+  for (let i = 0; i < variants.length; i++) {
+    const variant = variants[i];
+
+    // 🟢 Utiliser l’_id transmis par le frontend
+    const variantId = variant._id;
+    if (!variantId) {
+      return responseReturn(res, 400, { message: `L'identifiant de la variante ${i + 1} est requis.` });
+    }
+
+   // console.log('variant id ', variantId);
+   // console.log('variant ', variant);
+
+    const stockValue = parseInt(variant.variantStock);
+    if (isNaN(stockValue)) {
+      return responseReturn(res, 400, { message: `Le stock est requis pour la variante ${i + 1}.` });
+    }
+
+    const variantPrice = parseFloat(variant.variantPrice) > 0
+      ? parseFloat(variant.variantPrice)
+      : parseFloat(price);
+
+    // 🟢 Associer le fichier dont le nom contient l’_id (renommé côté frontend)
+    
+    const matchedImage = variantImages.find(file =>
+    file.originalname?.includes(variantId.toString())
+    );
+
+
+   // console.log('matched image', matchedImage);
+
+    let variantImage = null;
+    if (matchedImage) {
+      const uploadResult = await cloudinary.uploader.upload(matchedImage.path, {
+        folder: `${folderPath}/variants`,
+        public_id: `${slug}-variant-${variantId}-${Date.now()}`
+      });
+
+      await fs.promises.unlink(matchedImage.path).catch(console.error);
+
+      variantImage = {
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+        _id: new mongoose.Types.ObjectId()
+      };
+    }
+
+    normalizedVariants.push({
+      _id: variantId,
+      color: variant.color,
+      size: variant.size,
+      variantPrice,
+      variantStock: stockValue,
+      variantImage
+    });
+  }
+}
+
+    //  Création du produit
+    const product = await productModel.create({
+      sellerId: req.user.id,
+      name: trimmedName,
+      slug,
+      description: description?.trim(),
+      discount: parseFloat(discount) || 0,
+      price: parseFloat(price),
+      brand: brand?.trim(),
+      stock: parseInt(stock),
+      category: category.trim(),
+      shopName: shopName.trim(),
+      images,
+      tags: normalizedTags,
+      variants: normalizedVariants,
+      deliveryType,
+      deliveryFee: parseFloat(deliveryFee) || 0,
+      estimatedDeliveryTime: estimatedDeliveryTime?.trim(),
+      weight: parseFloat(weight) || undefined,
+      dimensions: dimensions ? {
+        length: parseFloat(dimensions.length) || 0,
+        width: parseFloat(dimensions.width) || 0,
+        height: parseFloat(dimensions.height) || 0,
+      } : undefined,
+    });
 
     return responseReturn(res, 200, {
       message: "Produit ajouté avec succès.",
@@ -267,7 +582,7 @@ export const get_all_product= async (req, res) =>  {
     }
 };
 
-
+/*
 export const updateProduct = async (req, res) => {
   try {
     const parsedBody = qs.parse(req.body);
@@ -361,48 +676,56 @@ export const updateProduct = async (req, res) => {
       return responseReturn(res, 400, { message: "Le produit doit avoir entre 1 et 4 images." });
     }
 
-    // ✅ Variantes
-    const variantImages = req.files['variantImage'] || [];
-    const normalizedVariants = [];
+        // ✅ Variantes
+        const variantImages = req.files['variantImage'] || [];
+        const normalizedVariants = [];
 
     if (variants && Array.isArray(variants) && variants.length > 0) {
-      for (let i = 0; i < variants.length; i++) {
-        const variant = variants[i];
-        const stockValue = parseInt(variant.variantStock);
+        for (let i = 0; i < variants.length; i++) {
+            const variant = variants[i];
+            const stockValue = parseInt(variant.variantStock);
 
-        if (isNaN(stockValue)) {
-          return responseReturn(res, 400, { message: `Le stock est obligatoire pour la variante ${i + 1}.` });
+            if (isNaN(stockValue)) {
+            return responseReturn(res, 400, { message: `Le stock est obligatoire pour la variante ${i + 1}.` });
+            }
+
+            let variantPrice = parseFloat(variant.variantPrice);
+            if (isNaN(variantPrice) || variantPrice <= 0) {
+            variantPrice = product.price;
+            }
+
+            // Recherche si la variante existait déjà
+            const existingVariant = product.variants.find(v =>
+            v.color === variant.color && v.size === variant.size
+            );
+
+            let variantImageUrl = '';
+
+            // Upload d'une nouvelle image si présente
+            if (variantImages[i]) {
+            const uploadResult = await cloudinary.uploader.upload(variantImages[i].path, {
+                folder: `${product.slug}/variants`,
+                public_id: `${product.slug}-variant-${i}-${Date.now()}`
+            });
+            variantImageUrl = uploadResult.secure_url;
+            await fs.promises.unlink(variantImages[i].path).catch(console.error);
+            } else if (existingVariant) {
+            // On conserve l'image existante
+            variantImageUrl = existingVariant.variantImage;
+            }
+
+            normalizedVariants.push({
+            color: variant.color,
+            size: variant.size,
+            variantPrice,
+            variantStock: stockValue,
+            variantImage: variantImageUrl
+            });
+        }
+        // Remplace les variantes par la liste normalisée
+        product.variants = normalizedVariants;
         }
 
-        let variantPrice = parseFloat(variant.variantPrice);
-        if (isNaN(variantPrice) || variantPrice <= 0) {
-          variantPrice = product.price;
-        }
-
-        let variantImageUrl = '';
-
-        // Upload image variante si présente
-        if (variantImages[i]) {
-          const uploadResult = await cloudinary.uploader.upload(variantImages[i].path, {
-            folder: `${product.slug}/variants`,
-            public_id: `${product.slug}-variant-${i}-${Date.now()}`
-          });
-          variantImageUrl = uploadResult.secure_url;
-          await fs.promises.unlink(variantImages[i].path).catch(console.error);
-        } else if (product.variants[i]) {
-          variantImageUrl = product.variants[i].variantImage;
-        }
-
-        normalizedVariants.push({
-          color: variant.color,
-          size: variant.size,
-          variantPrice,
-          variantStock: stockValue,
-          variantImage: variantImageUrl
-        });
-      }
-      product.variants = normalizedVariants;
-    }
 
     await product.save();
 
@@ -416,6 +739,197 @@ export const updateProduct = async (req, res) => {
     return responseReturn(res, 500, { message: "Erreur interne.", error: error.message });
   }
 };
+*/
+
+
+export const updateProduct = async (req, res) => {
+  try {
+    const parsedBody = qs.parse(req.body);
+    const {
+      productId,
+      name,
+      description,
+      discount,
+      price,
+      brand,
+      stock,
+      category,
+      shopName,
+      tags,
+      deliveryType,
+      deliveryFee,
+      estimatedDeliveryTime,
+      weight,
+      dimensions,
+      variants,
+      removedImages
+    } = parsedBody;
+
+    if (!productId) return responseReturn(res, 400, { message: "ID du produit requis." });
+
+    const productObjectId = mongoose.Types.ObjectId.createFromHexString(productId)
+    const product = await productModel.findById(productObjectId );
+    if (!product) return responseReturn(res, 404, { message: "Produit introuvable." });
+
+   // console.log('discount ', discount)
+   // console.log('product discount ', product.discount)
+     let newdiscount=0
+    if (discount !== undefined && !isNaN(parseFloat(discount))) {
+       newdiscount = parseFloat(discount);
+    }
+
+    //  Champs principaux
+    product.name = name?.trim() || product.name;
+    product.slug = name ? name.trim().split(" ").join("-").toLowerCase() : product.slug;
+    product.description = description || product.description;
+    product.discount = parseFloat(newdiscount) || parseFloat(product.discount);////
+    product.price = price !== undefined ? parseFloat(price) : product.price;
+    product.brand = brand || product.brand;
+    product.stock = stock !== undefined ? parseInt(stock) : product.stock;
+    product.category = category || product.category;
+    product.shopName = shopName || product.shopName;
+    product.deliveryType = deliveryType || product.deliveryType;
+    product.deliveryFee = deliveryFee !== undefined ? parseFloat(deliveryFee) : product.deliveryFee;
+    product.estimatedDeliveryTime = estimatedDeliveryTime || product.estimatedDeliveryTime;
+    product.weight = weight !== undefined ? parseFloat(weight) : product.weight;
+
+    if (dimensions) {
+      product.dimensions = {
+        length: parseFloat(dimensions.length) || 0,
+        width: parseFloat(dimensions.width) || 0,
+        height: parseFloat(dimensions.height) || 0,
+      };
+    }
+
+    //  Tags
+    product.tags = tags ? (Array.isArray(tags) ? tags : [tags]) : product.tags;
+
+    //  Suppression d'images
+    if (removedImages && Array.isArray(removedImages)) {
+      const toDelete = product.images.filter(img =>
+        removedImages.includes(img._id?.toString()) || removedImages.includes(img.public_id)
+      );
+      const toKeep = product.images.filter(img =>
+        !removedImages.includes(img._id?.toString()) && !removedImages.includes(img.public_id)
+      );
+
+      await Promise.all(toDelete.map(img => cloudinary.uploader.destroy(img.public_id)));
+      product.images = toKeep;
+    }
+
+    //  Ajout images principales
+    const folderPath = `GOBYMALL/${product.shopName.trim().replace(/\s+/g, "_")}/${product.category.trim().replace(/\s+/g, "_")}`;
+    const newImages = req.files['newImages[]'] || [];
+    if (newImages.length > 0) {
+      const remainingSlots = 4 - product.images.length;
+
+      if (newImages.length > remainingSlots) {
+        return responseReturn(res, 400, {
+          message: `Vous pouvez ajouter jusqu'à ${remainingSlots} images supplémentaires.`
+        });
+      }
+
+      const uploads = await Promise.all(
+        newImages.map(file =>
+          cloudinary.uploader.upload(file.path, {
+            folder: folderPath,
+            public_id: `${product.slug}-${Date.now()}`
+          }).then(result => {
+            fs.promises.unlink(file.path).catch(console.error);
+            return { url: result.secure_url, public_id: result.public_id };
+          })
+        )
+      );
+
+      product.images.push(...uploads);
+    }
+
+    //  Traitement des variantes
+    const variantImages = req.files['variantImage'] || [];
+    const normalizedVariants = [];
+
+    if (variants && Array.isArray(variants)) {
+      for (const variant of variants) {
+        const stockValue = parseInt(variant.variantStock);
+        const variantPrice = parseFloat(variant.variantPrice) || product.price;
+
+        if (isNaN(stockValue)) {
+          return responseReturn(res, 400, { message: `Stock invalide pour une variante.` });
+        }
+
+        //  Convertir ou générer un _id valide
+        let variantId;
+        if (mongoose.Types.ObjectId.isValid(variant._id)) {
+          variantId = mongoose.Types.ObjectId.createFromHexString(variant._id);
+        } else {
+          variantId = new mongoose.Types.ObjectId();
+        }
+
+        const existingVariant = product.variants.find(v => v._id?.toString() === variantId.toString());
+        let imageData = existingVariant?.variantImage || undefined;
+
+        //console.log('variant id ', variantId);
+        //console.log('existing variant ', existingVariant);
+        //console.log('image Data ', imageData);
+
+        const matchedImage = variantImages.find(file =>
+          file.originalname?.includes(variantId.toString())
+        );
+
+       // console.log('variant id ', variantId);
+       // console.log('existing variant ', existingVariant);
+        //console.log('image Data ', imageData);
+
+        if (matchedImage) {
+          const uploadResult = await cloudinary.uploader.upload(matchedImage.path, {
+            folder: `${folderPath}/variants`,
+            public_id: `${product.slug}-variant-${variantId}-${Date.now()}`
+          });
+
+
+
+          await fs.promises.unlink(matchedImage.path).catch(console.error);
+
+          if (imageData?.public_id) {
+            await cloudinary.uploader.destroy(imageData.public_id);
+          }
+
+          imageData = {
+            url: uploadResult.secure_url,
+            public_id: uploadResult.public_id,
+            _id: new mongoose.Types.ObjectId(),
+          };
+        }
+
+        normalizedVariants.push({
+          _id: variantId,
+          color: variant.color,
+          size: variant.size,
+          variantPrice,
+          variantStock: stockValue,
+          variantImage: imageData
+        });
+      }
+
+      product.variants = normalizedVariants;
+    }
+
+    await product.save();
+
+    return responseReturn(res, 200, {
+      message: "Produit mis à jour avec succès.",
+      product
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur update product :", error);
+    return responseReturn(res, 500, {
+      message: "Erreur interne.",
+      error: error.message
+    });
+  }
+};
+
 
 
 export const delete_product = async (req, res) => {

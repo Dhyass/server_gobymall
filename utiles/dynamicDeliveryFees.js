@@ -277,7 +277,7 @@ export async function geocodeAddress(address) {
     ].filter(Boolean); // supprimer les vides
 
     const query = queryParts.join(", ");
-    console.log("Adresse à géocoder:", query);
+    //console.log("Adresse à géocoder:", query);
 
     if (!query) throw new Error("Adresse invalide");
 

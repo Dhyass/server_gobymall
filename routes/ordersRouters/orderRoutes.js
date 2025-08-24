@@ -51,9 +51,9 @@ router.get('/customer/get_dashboard_data/:customerId',get_dashboard_data)
 router.get('/order/get_order_by_id/:orderId', get_order_by_id);
 router.post('/order/create-payment', create_payment)
 router.get('/order/confirm/:orderId', order_confirm)
-router.put('/order/update_order/:orderId', updateOrderProductQuantity)
-router.delete('/order/delete_order/:orderId/:productId/:sellerId',delete_Order)
-
+router.put('/order/update_order/:orderId/:sellerId/:cardId', updateOrderProductQuantity)
+router.delete('/order/delete_order/:orderId/:sellerId/:cardId',delete_Order)
+//{orderId}/${sellerId}/${cardId}
 router.get('/order/admin/get_admin_orders', get_admin_orders)
 router.get('/order/admin/get_admin_order/:orderId', get_admin_order_by_ID);
 router.put('/order/admin/admin_order_status_update/:orderId',admin_order_status_update)

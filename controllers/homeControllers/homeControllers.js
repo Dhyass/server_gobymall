@@ -30,7 +30,7 @@ export const get_home_Category = async (req, res) => {
         const categories = await categoryModel.find({});
             // ✅ Obtenir localisation client via IP
         const clientLocation = await getClientLocationFromIP(req);
-        console.log("Localisation client détectée :", clientLocation);
+        //console.log("Localisation client détectée :", clientLocation);
         responseReturn(res, 200, { categories, clientLocation});
     } catch (error) {
         console.error("Error fetching categories:", error);
@@ -204,13 +204,12 @@ export const get_product = async (req, res) => {
        // console.log( 'more products', moreProducts)
 
        const clientLocation = await getClientLocationFromIP(req);
-       console.log("Localisation client détectée :", clientLocation);
+      // console.log("Localisation client détectée :", clientLocation);
 
         /// seller info 
 
            const seller = await sellerModel.findById(product.sellerId);
            const sellerLocation = seller.shopInfo
-
            //console.log('seller ', seller)
             // console.log('seller location ', sellerLocation)
 

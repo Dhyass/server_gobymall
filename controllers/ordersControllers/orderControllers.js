@@ -1,7 +1,7 @@
 
 import moment from "moment";
 import mongoose from "mongoose";
-import Stripe from 'stripe'; // Assure-toi que tu utilises une version compatible ES Modules.
+import Stripe from 'stripe';
 import authOrderModel from "../../models/authOrderModel.js";
 import cardModel from "../../models/cardModel.js";
 import customerOrderModel from "../../models/customerOrderModel.js";
@@ -9,7 +9,7 @@ import myShopWalletSchemaModel from "../../models/myShopWalletModel.js";
 import productModel from "../../models/productModel.js";
 import sellerWalletModel from "../../models/sellerWalletModel.js";
 import { responseReturn } from "../../utiles/response.js";
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // Utilise la clé depuis l'environnement.
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // la clé depuis l'environnement.
 
 
 export const payment_check = async (id) => {
@@ -47,7 +47,7 @@ export const payment_check = async (id) => {
     }
 };
 
-
+/*
 export const place_order = async (req, res)  => {
     
     const {
@@ -62,6 +62,10 @@ export const place_order = async (req, res)  => {
     let cardId = []
     const tempDate = moment(Date.now()).format('LLL')
    //console.log('order items :>> ', items);
+
+ console.table(products);
+
+  // console.log(JSON.stringify(products))
 
   let customerOrderProducts = []
 
@@ -81,7 +85,7 @@ export const place_order = async (req, res)  => {
     //console.log(`customer Order Products` , customerOrderProducts);    
     //console.log(`cardId `, cardId);
     try {
-// Vérifiez si l'ID est valide
+    // Vérifiez si l'ID est valide
         if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
             //return res.status(400).json({ message: "ID utilisateur invalide." });
            return responseReturn(res, 400, { message: "ID utilisateur invalide." });
@@ -119,7 +123,6 @@ export const place_order = async (req, res)  => {
         }
     
         try {
-           
                 authOrderData.push({
                 orderId: order.id,
                 sellerId: sellerId,
@@ -146,10 +149,8 @@ export const place_order = async (req, res)  => {
         if (!cardIdTemp || !mongoose.Types.ObjectId.isValid(cardIdTemp)) {
             return responseReturn(res, 400, { message: "ID vendeur invalide." });
         }
-    
         const cardDelId = mongoose.Types.ObjectId.createFromHexString(cardIdTemp);
         await cardModel.findByIdAndDelete(cardDelId)
-        
     }
     //setTimeout(()=> {this.payment_check(order.id)} , 5000);
      // Vérification du paiement après 5 secondes
@@ -174,6 +175,149 @@ export const place_order = async (req, res)  => {
     
     
 }
+*/
+
+export const place_order = async (req, res) => {
+  const {
+    products,         // Tableau de groupes par vendeur : [{ sellerId, price, products }]
+    price,            // Prix global hors frais de livraison
+    Shipping_fees,    // Frais de livraison global
+    items,            // Nombre total d’articles
+    shippingInfo,
+    customerId
+  } = req.body;
+
+ // console.log('product index 0 :>> ', products[0]);
+
+  const authOrderData = [];
+  const cardId = [];
+  const tempDate = moment(Date.now()).format('LLL');
+  let customerOrderProducts = [];
+
+  try {
+    if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
+      return responseReturn(res, 400, { message: "ID utilisateur invalide." });
+    }
+
+    const userId = mongoose.Types.ObjectId.createFromHexString(customerId);
+
+    // 🧩 Étape 1 : Construction des produits pour customerOrderModel
+    for (const group of products) {
+      for (const item of group.products) {
+        const baseProduct = item.productInfo;
+        const quantity = item.quantity;
+        const selectedVariant = item.selectedVariant;
+
+            const productToSave = {
+                ...baseProduct,
+                quantity,
+                cardId: item._id , // 🔑 Stocker l’identifiant de panier
+                item_ShippingFee: item.item_ShippingFee,
+            };
+
+        // Ajouter les infos de la variante s’il y en a
+        if (selectedVariant) {
+          productToSave.selectedVariant = {
+            color: selectedVariant.color,
+            size: selectedVariant.size,
+            variantPrice: selectedVariant.variantPrice,
+            variantImage: selectedVariant.variantImage,
+            variantStock: selectedVariant.variantStock
+          };
+        }
+
+        customerOrderProducts.push(productToSave);
+
+        if (item._id) {
+          cardId.push(item._id);
+        }
+      }
+    }
+
+    // 🧩 Étape 2 : Création de la commande principale client
+    const order = await customerOrderModel.create({
+      customerId: userId,
+      products: customerOrderProducts,
+      price: price + Shipping_fees,
+      quantity: items,
+      payment_status: 'unpaid',
+      shippingInfo,
+      delivery_status: 'pending',
+      date: tempDate
+    });
+
+    // 🧩 Étape 3 : Création des commandes spécifiques aux vendeurs (authOrderModel)
+    for (const group of products) {
+      const sellerId = group.sellerId;
+      const sellerObjectId = mongoose.Types.ObjectId.createFromHexString(sellerId);
+      const sellerPrice = group.price;
+      const storeProducts = [];
+
+      for (const item of group.products) {
+        const baseProduct = item.productInfo;
+        const quantity = item.quantity;
+        const selectedVariant = item.selectedVariant;
+
+        const productToSave = {
+                ...baseProduct,
+            quantity,
+            cardId: item._id , // 🔑 Stocker l’identifiant de panier
+            item_ShippingFee: item.item_ShippingFee,
+        };
+
+        if (selectedVariant) {
+          productToSave.selectedVariant = {
+            color: selectedVariant.color,
+            size: selectedVariant.size,
+            variantPrice: selectedVariant.variantPrice,
+            variantImage: selectedVariant.variantImage,
+            variantStock: selectedVariant.variantStock
+          };
+        }
+
+        storeProducts.push(productToSave);
+      }
+
+      authOrderData.push({
+        orderId: order._id,
+        sellerId: sellerObjectId,
+        products: storeProducts,
+        price: sellerPrice,
+        payment_status: 'unpaid',
+        shippingInfo,
+        delivery_status: 'pending',
+        date: tempDate
+      });
+    }
+
+    // 🧩 Étape 4 : Insertion des commandes vendeurs
+    await authOrderModel.insertMany(authOrderData);
+
+    // 🧩 Étape 5 : Suppression des produits du panier
+    for (const id of cardId) {
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        await cardModel.findByIdAndDelete(id);
+      }
+    }
+
+    // 🧩 Étape 6 : Vérification du paiement après 5 secondes
+    setTimeout(async () => {
+      const paymentResult = await payment_check(order._id);
+      if (!paymentResult.success) {
+        console.log(paymentResult.message);
+      }
+    }, 5000);
+
+    return responseReturn(res, 201, {
+      message: "Commande passée avec succès.",
+      orderId: order._id
+    });
+
+  } catch (error) {
+    console.error("Erreur place_order :", error);
+    return responseReturn(res, 500, { message: "Erreur lors du traitement de la commande." });
+  }
+};
 
 export const get_orders = async (req, res) => {
   // console.log('get order is running :>> req params :', req.params);
@@ -691,17 +835,13 @@ export const updateOrderProductQuantity = async (req, res) => {
 };
 */
 
+/*
 export const updateOrderProductQuantity = async (req, res) => {
     const orderId = req.params.orderId;
     const productId = req.body.productId;
     const newQuantity = req.body.newQuantity;
     const sellerId = req.body.sellerId;
-    /*
-    console.log('orderId  :', orderId);
-    console.log('productId  :', productId);
-    console.log('newQuantity :', newQuantity);
-    console.log('sellerId :', sellerId);*/
-
+    
     try {
         if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
             return responseReturn(res, 400, { message: "ID invalide" });
@@ -782,21 +922,80 @@ export const updateOrderProductQuantity = async (req, res) => {
         return responseReturn(res, 500, { message: "Erreur interne du serveur." });
     }
 };
-
+ */
 
 /*
-je veux maintenant pourvoir suprimer un produit dans une commande , de (customerOrderModel et de authOrderModel ),
-lorsque tous les produits de la commande sont supprimés; la commande (order global ou order specifique au vendeur) est 
-automatiquement suprimée 
+export const updateOrderProductQuantity = async (req, res) => {
+  const { orderId } = req.params;
+  const { productId, newQuantity, sellerId, selectedVariant } = req.body;
 
-export const delete_Order = async(req, res)=>{
-    const orderId = req.params.orderId
-    const productId =req.params.productId
-    const sellerid = req.body.sellerId
-}
-*/  
+  try {
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return responseReturn(res, 400, { message: "ID invalide" });
+    }
 
+    const order = await customerOrderModel.findById(orderId);
+    const authOrder = await authOrderModel.findOne({ orderId, sellerId });
 
+    if (!order || !authOrder) {
+      return responseReturn(res, 404, { message: "Commande non trouvée." });
+    }
+
+    // Recherche du produit à mettre à jour (avec ou sans variante)
+    const matchVariant = (p) =>
+      p._id.toString() === productId &&
+      (!selectedVariant ||
+        (p.selectedVariant &&
+          p.selectedVariant.color === selectedVariant.color &&
+          p.selectedVariant.size === selectedVariant.size));
+
+    const productIndex = order.products.findIndex(matchVariant);
+    const authProductIndex = authOrder.products.findIndex(matchVariant);
+
+    if (productIndex === -1 || authProductIndex === -1) {
+      return responseReturn(res, 404, { message: "Produit non trouvé dans la commande." });
+    }
+
+    const productToUpdate = order.products[productIndex];
+    const authProductToUpdate = authOrder.products[authProductIndex];
+
+    const stock = productToUpdate.selectedVariant?.variantStock ?? productToUpdate.stock;
+
+    if (newQuantity < 1 || newQuantity > stock) {
+      return responseReturn(res, 400, {
+        message: `La quantité doit être comprise entre 1 et ${stock}.`
+      });
+    }
+
+    const priceUnit = productToUpdate.selectedVariant?.variantPrice ?? productToUpdate.price;
+    const priceDiscounted = priceUnit - (priceUnit * (productToUpdate.discount || 0) / 100);
+    const delta = newQuantity - productToUpdate.quantity;
+
+    const updatedOrderPrice = order.price + delta * priceDiscounted;
+    const updatedAuthPrice = authOrder.price + delta * priceDiscounted;
+
+    // Mise à jour uniquement si la commande est impayée
+    if (order.payment_status === 'unpaid') {
+      // Mise à jour dans customerOrderModel
+      order.products[productIndex].quantity = newQuantity;
+      order.price = parseFloat(updatedOrderPrice).toFixed(2);
+      await order.save();
+
+      // Mise à jour dans authOrderModel
+      authOrder.products[authProductIndex].quantity = newQuantity;
+      authOrder.price = parseFloat(updatedAuthPrice).toFixed(2);
+      await authOrder.save();
+    }
+
+    return responseReturn(res, 200, { message: "Quantité mise à jour avec succès." });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour :", error);
+    return responseReturn(res, 500, { message: "Erreur interne du serveur." });
+  }
+};
+*/
+
+/*
 export const delete_Order = async (req, res) => {
     const orderId = req.params.orderId;
     const productId = req.params.productId;
@@ -874,4 +1073,648 @@ export const delete_Order = async (req, res) => {
         console.error("Erreur lors de la suppression du produit :", error.message);
         return responseReturn(res, 500, { message: "Erreur serveur." });
     }
+};
+*/
+ /*
+export const delete_Order = async (req, res) => {
+    const orderId = req.params.orderId;
+    const productId = req.params.productId;
+    const sellerId = req.params.sellerId;
+    const { color, size } = req.query;
+
+    console.log('color ', color);
+    console.log('size ', size);
+
+    try {
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return responseReturn(res, 400, { message: "ID de commande invalide." });
+        }
+
+        const order = await customerOrderModel.findById(orderId);
+        const authOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+        //console.log('order ', order)
+       // console.log('authOrder ', authOrder)
+
+        if (!order || !authOrder) {
+            return responseReturn(res, 404, { message: "Commande non trouvée." });
+        }
+
+        // Trouver le produit à supprimer (avec les variantes)
+    
+        console.log("🔍 Analyse des produits dans la commande :");
+        order.products.forEach((p, index) => {
+        console.log(`Produit ${index + 1}:`);
+        console.log(" - productId:", p._id?.toString());
+        console.log(" - color:", p.selectedVariant?.color);
+        console.log(" - size:", p.selectedVariant?.size);
+        });
+        console.log("Critères de suppression → productId:", productId, "color:", color, "size:", size);
+
+
+        const matchProduct = (p) => {
+            const isSameProduct = p._id?.toString() === productId;
+
+            const hasVariant = !!p.selectedVariant;
+            const colorMatch = p.selectedVariant?.color === color;
+            const sizeMatch = p.selectedVariant?.size === size;
+
+            console.log('is SameProduct ', isSameProduct);
+            console.log('hasVariant ', hasVariant);
+            console.log('colorMatch ', colorMatch);
+            console.log('sizeMatch ', sizeMatch);
+            if (hasVariant && color && size) {
+                return isSameProduct && colorMatch && sizeMatch;
+            }
+
+            // Cas produit sans variante (aucune couleur/taille fournie)
+            if (!hasVariant && !color && !size) {
+                return isSameProduct;
+            }
+
+            return false; // pas de correspondance
+        };
+
+
+       // order.products = order.products.filter(p => !matchProduct(p));
+
+        //console.log('order products après suppression :', order.products);
+
+        const productInOrder = order.products.filter(p => !matchProduct(p));
+        const productInAuthOrder = authOrder.products.filter(p => !matchProduct(p));
+
+      console.log('product In Order', productInOrder)
+      //  console.log('product In Auth Order', productInAuthOrder)
+
+        if (!productInOrder || !productInAuthOrder) {
+            return responseReturn(res, 404, { message: "Produit non trouvé dans la commande." });
+        }
+        console.log('productInOrder selectedVariant variantPrice: ', productInOrder[0].selectedVariant.variantPrice)
+        const totalReduction = productInOrder.quantity * productInOrder.selectedVariant.variantPrice;
+
+        // Supprimer le produit dans customerOrderModel
+        await customerOrderModel.updateOne(
+            { _id: orderId },
+            {
+                $pull: {
+                    products: {
+                        productId,
+                        'selectedVariant.color': color,
+                        'selectedVariant.size': size
+                    }
+                },
+                $inc: { price: -totalReduction }
+            }
+        );
+
+        // Supprimer le produit dans authOrderModel
+        await authOrderModel.updateOne(
+            { orderId, sellerId },
+            {
+                $pull: {
+                    products: {
+                        productId,
+                        'selectedVariant.color': color,
+                        'selectedVariant.size': size
+                    }
+                },
+                $inc: { price: -totalReduction }
+            }
+        );
+
+        // Rechargement des commandes mises à jour
+        const updatedOrder = await customerOrderModel.findById(orderId);
+        const updatedAuthOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+        console.log('Produits AVANT suppression:', order.products.length);
+        console.log('Produits APRÈS suppression:', updatedOrder.products.length);
+
+
+        let orderDeleted = false;
+        let authOrderDeleted = false;
+
+        if (!updatedOrder?.products.length) {
+            await customerOrderModel.findByIdAndDelete(orderId);
+            orderDeleted = true;
+        }
+
+        if (!updatedAuthOrder?.products.length) {
+            await authOrderModel.deleteOne({ orderId, sellerId });
+            authOrderDeleted = true;
+        }
+
+        return responseReturn(res, 200, {
+            message: orderDeleted
+                ? "Produit supprimé. La commande a été supprimée car elle ne contenait plus aucun produit."
+                : "Produit supprimé avec succès.",
+            orderDeleted,
+            authOrderDeleted,
+            productId,
+            color,
+            size
+        });
+
+    } catch (error) {
+        console.error("Erreur lors de la suppression du produit :", error.message);
+        return responseReturn(res, 500, { message: "Erreur serveur." });
+    }
+};
+*/
+
+/*
+export const delete_Order = async (req, res) => {
+    const orderId = req.params.orderId;
+    const productId = req.params.productId;
+    const sellerId = req.params.sellerId;
+    const { color, size } = req.query;
+    const selectedVariant = req.body.selectedVariant;
+
+    console.log('selected body:', req.body);
+
+    try {
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return responseReturn(res, 400, { message: "ID de commande invalide." });
+        }
+
+        const order = await customerOrderModel.findById(orderId);
+        const authOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+        if (!order || !authOrder) {
+            return responseReturn(res, 404, { message: "Commande non trouvée." });
+        }
+
+        // 🔍 Trouver le produit à supprimer dans la commande globale
+
+        const productToDelete = order.products.find((p) => {
+            return (
+                p.selectedVariant?.color === color &&
+                p.selectedVariant?.size === size &&
+                p._id?.toString() === productId  // Si tu le stockes bien
+            );
+            });
+
+            if (!productToDelete) {
+            return responseReturn(res, 404, { message: "Produit à supprimer non trouvé." });
+            }
+
+            // 💰 Calcul du prix à déduire
+        const quantity = productToDelete.quantity || 1;
+        const price = productToDelete.selectedVariant?.variantPrice || 0;
+        const totalReduction = quantity * price;
+
+            // Suppression ciblée dans customerOrder
+            await customerOrderModel.updateOne(
+            { _id: orderId },
+            {
+                $pull: {
+                products: {
+                    _id: productToDelete._id // ✅ Cibler uniquement cette variante
+                }
+                },
+                $inc: { price: -totalReduction }
+            }
+            );
+
+            // Pareil dans authOrder
+            await authOrderModel.updateOne(
+            { orderId, sellerId },
+            {
+                $pull: {
+                products: {
+                    _id: productToDelete._id // ✅ Bien ciblé
+                }
+                },
+                $inc: { price: -totalReduction }
+            }
+            );
+
+
+        // Vérifier si les commandes sont désormais vides
+        const updatedOrder = await customerOrderModel.findById(orderId);
+        const updatedAuthOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+        let orderDeleted = false;
+        let authOrderDeleted = false;
+
+        if (!updatedOrder?.products.length) {
+            await customerOrderModel.findByIdAndDelete(orderId);
+            orderDeleted = true;
+        }
+
+        if (!updatedAuthOrder?.products.length) {
+            await authOrderModel.deleteOne({ orderId, sellerId });
+            authOrderDeleted = true;
+        }
+
+        return responseReturn(res, 200, {
+            message: orderDeleted
+                ? "Produit supprimé. La commande a été supprimée car elle ne contenait plus aucun produit."
+                : "Produit supprimé avec succès.",
+            orderDeleted,
+            authOrderDeleted,
+            productId,
+            color,
+            size
+        });
+
+    } catch (error) {
+        console.error("Erreur lors de la suppression du produit :", error.message);
+        return responseReturn(res, 500, { message: "Erreur serveur." });
+    }
+};
+*/
+
+
+export const delete_Order = async (req, res) => {
+  const orderId = req.params.orderId;
+  const sellerId = req.params.sellerId;
+  const cardId = req.params.cardId;
+  console.log('card Id', cardId);
+
+  const commission = 0;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(cardId)) {
+      return responseReturn(res, 400, { message: "ID invalide." });
+    }
+
+    const order = await customerOrderModel.findById(orderId);
+    const authOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+    if (!order || !authOrder) {
+      return responseReturn(res, 404, { message: "Commande non trouvée." });
+    }
+
+    // Trouver l'item dans customerOrder
+    const productToDelete = order.products.find((p) => p.cardId?.toString() === cardId);
+
+    if (!productToDelete) {
+      return responseReturn(res, 404, { message: "Produit à supprimer non trouvé dans la commande." });
+    }
+
+    const quantity = productToDelete.quantity || 1;
+    const price = productToDelete.selectedVariant?.variantPrice || productToDelete.price || 0;
+
+      const priceAfterDiscount = price * (1 - (productToDelete.discount || 0) / 100);
+      const finalPrice = priceAfterDiscount * (1 - commission / 100);
+
+    const totalReduction = quantity*finalPrice + productToDelete.item_ShippingFee;
+
+    // Suppression dans customerOrder
+    await customerOrderModel.updateOne(
+      { _id: orderId },
+      {
+        $pull: { products: { cardId } },
+        $inc: { price: -totalReduction }
+      }
+    );
+
+    // Suppression dans authOrder
+    await authOrderModel.updateOne(
+      { orderId, sellerId },
+      {
+        $pull: { products: { cardId } },
+        $inc: { price: -totalReduction }
+      }
+    );
+
+    // Vérification après suppression
+    const updatedOrder = await customerOrderModel.findById(orderId);
+    const updatedAuthOrder = await authOrderModel.findOne({ orderId, sellerId });
+
+    let orderDeleted = false;
+    let authOrderDeleted = false;
+
+    if (!updatedOrder?.products.length) {
+      await customerOrderModel.findByIdAndDelete(orderId);
+      orderDeleted = true;
+    }
+
+    if (!updatedAuthOrder?.products.length) {
+      await authOrderModel.deleteOne({ orderId, sellerId });
+      authOrderDeleted = true;
+    }
+
+    return responseReturn(res, 200, {
+      message: orderDeleted
+        ? "Produit supprimé. La commande a été supprimée car elle ne contenait plus aucun produit."
+        : "Produit supprimé avec succès.",
+      orderDeleted,
+      authOrderDeleted,
+      cardId,
+      updatedCustomerOrderPrice: updatedOrder.price,
+    });
+
+  } catch (error) {
+    console.error("Erreur lors de la suppression du produit :", error.message);
+    return responseReturn(res, 500, { message: "Erreur serveur." });
+  }
+};
+
+/*
+export const updateOrderProductQuantity = async (req, res) => {
+  try {
+    const { orderId, sellerId, cardId } = req.params;
+    const { newQuantity, state } = req.body;
+     console.log('order id ', orderId)
+     console.log('seller id ', sellerId)
+     console.log('card id ', cardId)
+     console.log('new quantity ', newQuantity)
+     console.log('state ', state)
+
+    if (!newQuantity || newQuantity < 1) {
+      return res.status(400).json({ message: "Quantité invalide." });
+    }
+
+    // Mise à jour dans customerOrders
+    const customerOrder = await customerOrderModel.findById(orderId);
+    if (!customerOrder) return res.status(404).json({ message: "Commande client introuvable." });
+
+    const itemToUpdate = customerOrder.products.find((item) => item.cardId === cardId);
+    if (!itemToUpdate) return res.status(404).json({ message: "Produit non trouvé dans la commande client." });
+
+    //console.log('item to update ', itemToUpdate)
+
+    //  Vérifier le stock réel
+    let stockAvailable = itemToUpdate.stock;
+    let variantImage = itemToUpdate.thumbnail;
+
+    const selectedVariant=itemToUpdate.selectedVariant
+
+    if (selectedVariant) {
+      const variantInProduct = itemToUpdate.variants.find(v =>
+        v.color === selectedVariant.color && v.size === selectedVariant.size
+      );
+
+      if (!variantInProduct) {
+        return responseReturn(res, 400, { message: "Variante introuvable." });
+      }
+
+     // console.log('variant', variantInProduct);
+
+      stockAvailable = variantInProduct.variantStock;
+      //priceToUse = variantInProduct.variantPrice ?? product.price;
+      variantImage = variantInProduct.variantImage ?? product.thumbnail;
+    }
+
+    if (newQuantity > stockAvailable) {
+      return responseReturn(res, 400, {
+        message: `Stock insuffisant. Seulement ${stockAvailable} en stock.`
+      });
+    }
+
+    // Calcul du prix unitaire et des frais de livraison unitaire
+    const unitPrice = itemToUpdate.price;
+    const unitShippingFee = itemToUpdate.item_ShippingFee && itemToUpdate.quantity
+      ? itemToUpdate.item_ShippingFee / itemToUpdate.quantity
+      : 0;
+
+    itemToUpdate.quantity = newQuantity;
+    itemToUpdate.price = unitPrice * newQuantity;
+    itemToUpdate.item_ShippingFee = unitShippingFee * newQuantity;
+
+    await itemToUpdate.save()
+
+    // Recalcul total
+    customerOrder.price = customerOrder.products.reduce((acc, p) => acc + (p.price || 0), 0);
+    customerOrder.Shipping_fees = customerOrder.products.reduce((acc, p) => acc + (p.item_ShippingFee || 0), 0);
+    customerOrder.quantity = customerOrder.products.reduce((acc, p) => acc + (p.quantity || 0), 0);
+
+    await customerOrder.save();
+
+    // Mise à jour dans authOrders
+    const authOrder = await authOrderModel.findOne({
+      orderId: orderId,
+      sellerId: sellerId,
+    });
+
+    console.log('auth order ', authOrder);
+
+    if (!authOrder) return res.status(404).json({ message: "Commande vendeur introuvable." });
+
+    const authItemToUpdate = authOrder.products.find((item) => item.cardId === cardId);
+    if (!authItemToUpdate) return res.status(404).json({ message: "Produit non trouvé dans la commande vendeur." });
+
+    authItemToUpdate.quantity = newQuantity;
+    authItemToUpdate.price = unitPrice * newQuantity;
+    authItemToUpdate.item_ShippingFee = unitShippingFee * newQuantity;
+
+    await authItemToUpdate.save()
+
+    // Recalcul des totaux
+    authOrder.price = authOrder.products.reduce((acc, p) => acc + (p.price || 0), 0);
+    authOrder.Shipping_fees = authOrder.products.reduce((acc, p) => acc + (p.item_ShippingFee || 0), 0);
+    authOrder.quantity = authOrder.products.reduce((acc, p) => acc + (p.quantity || 0), 0);
+
+    await authOrder.save();
+
+    return res.status(200).json({
+      message: "Quantité mise à jour avec succès.",
+      order: customerOrder,
+    });
+  } catch (error) {
+    console.error("Erreur updateOrderProductQuantity:", error);
+    return res.status(500).json({ message: "Erreur serveur lors de la mise à jour de la quantité." });
+  }
+};
+*/
+/*
+export const updateOrderProductQuantity = async (req, res) => {
+  try {
+    const { orderId, sellerId, cardId } = req.params;
+    const { newQuantity, state } = req.body;
+
+    if (!newQuantity || newQuantity < 1) {
+      return res.status(400).json({ message: "Quantité invalide." });
+    }
+
+    // 🟡 Récupération commande client
+    const customerOrder = await customerOrderModel.findById(orderId);
+    if (!customerOrder) {
+      return res.status(404).json({ message: "Commande client introuvable." });
+    }
+
+    const itemToUpdate = customerOrder.products.find((item) => item.cardId === cardId);
+    if (!itemToUpdate) {
+      return res.status(404).json({ message: "Produit non trouvé dans la commande client." });
+    }
+
+    // 🟡 Vérification du stock
+    let stockAvailable = itemToUpdate.stock;
+    const selectedVariant = itemToUpdate.selectedVariant;
+
+    if (selectedVariant) {
+      const variant = itemToUpdate.variants.find(v =>
+        v.color === selectedVariant.color && v.size === selectedVariant.size
+      );
+
+      if (!variant) {
+        return res.status(400).json({ message: "Variante introuvable." });
+      }
+
+      stockAvailable = variant.variantStock;
+    }
+
+    if (newQuantity > stockAvailable) {
+      return res.status(400).json({
+        message: `Stock insuffisant. Seulement ${stockAvailable} en stock.`,
+      });
+    }
+
+    // 🟡 Mise à jour des valeurs dans customerOrder
+    const unitPrice = itemToUpdate.price;
+    const unitShippingFee = itemToUpdate.item_ShippingFee / itemToUpdate.quantity;
+
+    itemToUpdate.quantity = newQuantity;
+    itemToUpdate.price = unitPrice * newQuantity;
+    itemToUpdate.item_ShippingFee = unitShippingFee * newQuantity;
+
+    // Recalcul global
+    customerOrder.price = customerOrder.products.reduce((sum, p) => sum + (p.price || 0), 0);
+    customerOrder.Shipping_fees = customerOrder.products.reduce((sum, p) => sum + (p.item_ShippingFee || 0), 0);
+    customerOrder.quantity = customerOrder.products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+
+    await customerOrder.save();
+
+    // 🟡 Récupération commande vendeur
+    const authOrder = await authOrderModel.findOne({ orderId, sellerId });
+    if (!authOrder) {
+      return res.status(404).json({ message: "Commande vendeur introuvable." });
+    }
+
+    const authItemToUpdate = authOrder.products.find((item) => item.cardId === cardId);
+    if (!authItemToUpdate) {
+      return res.status(404).json({ message: "Produit non trouvé dans la commande vendeur." });
+    }
+
+    // Mise à jour dans authOrder
+    authItemToUpdate.quantity = newQuantity;
+    authItemToUpdate.price = unitPrice * newQuantity;
+    authItemToUpdate.item_ShippingFee = unitShippingFee * newQuantity;
+
+    // Recalcul global vendeur
+    authOrder.price = authOrder.products.reduce((sum, p) => sum + (p.price || 0), 0);
+    authOrder.Shipping_fees = authOrder.products.reduce((sum, p) => sum + (p.item_ShippingFee || 0), 0);
+    authOrder.quantity = authOrder.products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+
+    await authOrder.save();
+
+    return res.status(200).json({
+      message: "Quantité mise à jour avec succès.",
+      order: customerOrder,
+    });
+  } catch (error) {
+    console.error("Erreur updateOrderProductQuantity:", error);
+    return res.status(500).json({ message: "Erreur serveur lors de la mise à jour de la quantité." });
+  }
+};
+*/
+
+export const updateOrderProductQuantity = async (req, res) => {
+  try {
+    const { orderId, sellerId, cardId } = req.params;
+    const { newQuantity, state } = req.body;
+
+    if (!newQuantity || newQuantity < 1) {
+      return res.status(400).json({ message: "Quantité invalide." });
+    }
+
+    // 🟡 Récupération de la commande client
+    const customerOrder = await customerOrderModel.findById(orderId);
+    if (!customerOrder) {
+      return res.status(404).json({ message: "Commande client introuvable." });
+    }
+
+    // 🔍 Recherche de l'item à mettre à jour (comparaison avec .toString())
+    const itemToUpdate = customerOrder.products.find(
+      (item) => item.cardId.toString() === cardId
+    );
+
+    if (!itemToUpdate) {
+      return res.status(404).json({ message: "Produit non trouvé dans la commande client." });
+    }
+
+    // 🟡 Vérification du stock
+    let stockAvailable = itemToUpdate.stock;
+    const selectedVariant = itemToUpdate.selectedVariant;
+
+    if (selectedVariant) {
+      const variant = itemToUpdate.variants.find(
+        (v) =>
+          v.color === selectedVariant.color &&
+          v.size === selectedVariant.size
+      );
+
+      if (!variant) {
+        return res.status(400).json({ message: "Variante introuvable." });
+      }
+
+      stockAvailable = variant.variantStock;
+    }
+
+    if (newQuantity > stockAvailable) {
+      return res.status(400).json({
+        message: `Stock insuffisant. Seulement ${stockAvailable} en stock.`,
+      });
+    }
+
+    // 🟡 Mise à jour des valeurs de l'item
+    const unitPrice = itemToUpdate.price;
+    const unitShippingFee = itemToUpdate.item_ShippingFee / itemToUpdate.quantity;
+
+    itemToUpdate.quantity = newQuantity;
+   // itemToUpdate.price = unitPrice * newQuantity;
+    itemToUpdate.item_ShippingFee = unitShippingFee * newQuantity;
+
+    const newQuantityPrice = itemToUpdate.price*newQuantity
+
+    // 🔁 Recalcul des totaux dans la commande client
+    customerOrder.price = customerOrder.products.reduce((sum, p) => sum + ((p.price*p.quantity )|| 0), 0);
+    customerOrder.Shipping_fees = customerOrder.products.reduce((sum, p) => sum + (p.item_ShippingFee || 0), 0);
+    customerOrder.quantity = customerOrder.products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    customerOrder.price = customerOrder.price + customerOrder.Shipping_fees;
+
+    customerOrder.markModified("products");
+    await customerOrder.save();
+
+    // 🟡 Récupération de la commande vendeur
+    const authOrder = await authOrderModel.findOne({ orderId, sellerId });
+    if (!authOrder) {
+      return res.status(404).json({ message: "Commande vendeur introuvable." });
+    }
+
+    // 🔍 Recherche de l'item à mettre à jour dans authOrder
+    const authItemToUpdate = authOrder.products.find(
+      (item) => item.cardId.toString() === cardId
+    );
+
+    if (!authItemToUpdate) {
+      return res.status(404).json({ message: "Produit non trouvé dans la commande vendeur." });
+    }
+
+    // 🟡 Mise à jour des valeurs de l'item vendeur
+    authItemToUpdate.quantity = newQuantity;
+    //authItemToUpdate.price = unitPrice * newQuantity;
+    authItemToUpdate.item_ShippingFee = unitShippingFee * newQuantity;
+
+    // 🔁 Recalcul des totaux vendeur
+    authOrder.price = authOrder.products.reduce((sum, p) => sum + ((p.price*p.quantity) || 0), 0);
+    authOrder.Shipping_fees = authOrder.products.reduce((sum, p) => sum + (p.item_ShippingFee || 0), 0);
+    authOrder.quantity = authOrder.products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    authOrder.price = authOrder.price + authOrder.Shipping_fees;
+
+    authOrder.markModified("products");
+    await authOrder.save();
+
+    return res.status(200).json({
+      message: "Quantité mise à jour avec succès.",
+      order: customerOrder,
+      sellerOrder: authOrder,
+    });
+  } catch (error) {
+    console.error("Erreur updateOrderProductQuantity:", error);
+    return res.status(500).json({
+      message: "Erreur serveur lors de la mise à jour de la quantité.",
+    });
+  }
 };
