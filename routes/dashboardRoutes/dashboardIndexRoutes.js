@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { get_admin_dashboard_data, get_seller_dashboard_data } from '../../controllers/dashboardControllers/dashboardIndexController.js';
+import { get_admin_dashboard_data, get_seller_dashboard_data, getAdminStats, getSellerStatistics } from '../../controllers/dashboardControllers/dashboardIndexController.js';
 import { authMiddleware } from '../../middlewares/authMiddleware.js';
 
 
@@ -33,6 +33,8 @@ const storage = multer.diskStorage({
 
 router.get('/seller/get_seller_dashboard_index_data',authMiddleware,get_seller_dashboard_data);
 router.get('/admin/get_admin_dashboard_index_data',authMiddleware,get_admin_dashboard_data);
+router.get("/seller/statistics",authMiddleware, getSellerStatistics);
+router.get('/admin/stats/get_admin_dashboard_stats_data', getAdminStats)
 
 
 export default router;  //export the router

@@ -459,34 +459,13 @@ export const getSellers = async (req, res) => {
         return responseReturn(res, 500, {message:"Internal Server Error"});
     }
 }
-/*
-export const admin_message_to_seller = async (req, res) => {
-    console.log('req .body:', req.body);
-    const {sellerId,adminId, message,name} = req.body;
-    try {
-        const admin_Message = new adminSellerMessageModel({
-            senderName:name,
-            senderId:adminId,
-            receiverId:sellerId,
-            message:message,
-        })
-        await admin_Message.save();
-       // console.log('my Message saved', admin_Message);
-       //console.log('my admin_Message',admin_Message.receiverId);
-        return responseReturn(res, 200, {admin_Message:admin_Message});
-    } catch (error) {
-        console.error("Error in admin_message_to_seller function:", error);
-        return responseReturn(res, 500, {message:"Internal Server Error"});
-    }
-    
- }*/
 
 export const admin_message_to_seller = async (req, res) => {
-    console.log('req.body:', req.body);
+    ///console.log('req.body:', req.body);
     const { sellerId, adminId, message, name } = req.body;
 
     // Vérification des champs obligatoires
-    if (!sellerId || !adminId || !message || !name) {
+    if (!sellerId || !message || !name) {
         return res.status(400).json({
             error: "sellerId, adminId, message et name sont requis."
         });
@@ -502,7 +481,7 @@ export const admin_message_to_seller = async (req, res) => {
         });
         await admin_Message.save();
 
-        console.log('admin_Message', admin_Message)
+       // console.log('admin_Message', admin_Message)
 
         return responseReturn(res, 200, { admin_Message : admin_Message });
     } catch (error) {

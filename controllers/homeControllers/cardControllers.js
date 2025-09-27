@@ -233,7 +233,7 @@ export const get_card = async (req, res) => {
 };*/
 
 /*
-// ✅ Obtenir la position du client via son IP
+// Obtenir la position du client via son IP
 async function getClientLocationFromIP(ip) {
 
   try {
@@ -253,7 +253,7 @@ async function getClientLocationFromIP(ip) {
   }
 }
 
-// ✅ Calcul dynamique des frais d’expédition
+// Calcul dynamique des frais d’expédition
 async function calculateDynamicShipping(sellerLocation, clientLocation, product) {
   try {
     if (!sellerLocation?.lat || !sellerLocation?.lon) {
@@ -343,7 +343,7 @@ export const get_card = async (req, res) => {
   const { id } = req.params;
   const commission = 0; // % commission éventuelle
 
-  // ✅ Vérification ID utilisateur
+  // Vérification ID utilisateur
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     console.log("ID utilisateur invalide :", id);
     return responseReturn(res, 400, { message: "ID invalide" });
@@ -352,7 +352,7 @@ export const get_card = async (req, res) => {
   try {
     const objectId = mongoose.Types.ObjectId.createFromHexString(id);
 
-    // ✅ Récupérer les produits du panier + infos produit + vendeur
+    //  Récupérer les produits du panier + infos produit + vendeur
     const cartProducts = await cardModel.aggregate([
       { $match: { customerId: objectId } },
       {
@@ -366,7 +366,7 @@ export const get_card = async (req, res) => {
       { $unwind: "$productInfo" },
       {
         $lookup: {
-          from: "sellers", // ✅ Charger shopInfo
+          from: "sellers", // Charger shopInfo
           localField: "productInfo.sellerId",
           foreignField: "_id",
           as: "sellerInfo",
@@ -388,11 +388,11 @@ export const get_card = async (req, res) => {
     });
   }*/
 
-    // ✅ Obtenir localisation client via IP
+    // Obtenir localisation client via IP
     const clientLocation = await getClientLocationFromIP(req);
    //console.log("Localisation client détectée :", clientLocation);
 
-    // ✅ Traitement du panier
+    // Traitement du panier
     const result = await processCardProducts(cartProducts, commission, clientLocation);
 
     return responseReturn(res, 200, result);
@@ -953,7 +953,7 @@ async function processCardProducts(cartProducts, commission) {
 }
 */
 
-// ✅ Fonction pour recalculer le panier
+// Fonction pour recalculer le panier
 
 /*
 export const recalculateCart = async (req, res) => {

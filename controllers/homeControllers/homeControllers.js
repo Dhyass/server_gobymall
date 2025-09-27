@@ -70,7 +70,7 @@ export const get_home_product = async (req, res) => {
 
 export const get_price_range_latest_products = async (req, res) => {
     try {
-        const priceRange = {
+        const priceRange = { 
             min: 0,
             max: 0,
         };
@@ -443,11 +443,11 @@ export const getProductReviews = async (req, res) => {
 
 */
 
+
 export const getProductReviews = async (req, res) => {
     const { productId } = req.params;
-    //console.log('productid ', productId);
     const { pageNumber} = req.query; // Page par défaut : 1
-   // console.log('page number', pageNumber)
+ 
     const parPage = 5;
     const skip = (parseInt(pageNumber) - 1) * parPage;
 
@@ -461,16 +461,7 @@ export const getProductReviews = async (req, res) => {
         const totalReviews = await reviewModel.countDocuments({
             productId: mongoose.Types.ObjectId.createFromHexString(productId),
         });
-     /*
-       if (totalReviews === 0) {
-            return responseReturn(res, 201, {
-                message: "Aucun avis trouvé",
-                rating_review: initializeRatingReview(), // Générer un tableau vide
-                totalReviews: 0,
-                reviews: [],
-            });
-        }  
-    */
+ 
         // Récupération des statistiques de notation
         const getRating = await reviewModel.aggregate([
             {
@@ -505,7 +496,7 @@ export const getProductReviews = async (req, res) => {
             .limit(parPage)
             .sort({ createdAt: -1 });
 
-        //    console.log('rewiews ', reviews);
+        //console.log('rewiews ', reviews);
 
         // Retourner les avis avec les statistiques
         return responseReturn(res, 200, {
@@ -513,7 +504,8 @@ export const getProductReviews = async (req, res) => {
             rating_review,
             totalReviews,
             reviews,
-            productId
+            parPage,
+            currentPage : parseInt(pageNumber),
         });
     } catch (error) {
         console.error("Erreur lors de la récupération des avis :", error);
@@ -530,3 +522,84 @@ const initializeRatingReview = () => [
     { rating: 1, sum: 0 },
 ];
 
+
+/*
+export const getProductReviews = async (req, res) => {
+  const { productId } = req.params;
+  const pageNumber = parseInt(req.query.pageNumber) || 1; // Par défaut 1
+
+  const parPage = 5;
+  const skip = (pageNumber - 1) * parPage;
+
+  try {
+    // Valider l'ID produit
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return responseReturn(res, 400, { message: "ID produit invalide" });
+    }
+
+    // Compter le nombre total d'avis
+    const totalReviews = await reviewModel.countDocuments({
+      productId: mongoose.Types.ObjectId.createFromHexString(productId),
+    });
+
+    // Statistiques de notation
+    const getRating = await reviewModel.aggregate([
+      {
+        $match: {
+          productId: mongoose.Types.ObjectId.createFromHexString(productId),
+        },
+      },
+      {
+        $group: {
+          _id: "$rating",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Initialiser la structure des notes
+    const rating_review = initializeRatingReview();
+    getRating.forEach(({ _id, count }) => {
+      const index = rating_review.findIndex((r) => r.rating === _id);
+      if (index !== -1) {
+        rating_review[index].sum = count;
+      }
+    });
+
+    // Récupérer les avis (avec pagination + tri)
+    const reviews = await reviewModel
+      .find({
+        productId: mongoose.Types.ObjectId.createFromHexString(productId),
+      })
+      .skip(skip)
+      .limit(parPage)
+      .sort({ createdAt: -1 });
+
+    // Calcul du nombre total de pages
+    const totalPages = Math.ceil(totalReviews / parPage);
+
+    // Réponse
+    return responseReturn(res, 200, {
+      message: "Liste des avis récupérée avec succès",
+      rating_review,
+      totalReviews,
+      totalPages,
+      currentPage: pageNumber,
+      parPage,
+      reviews,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des avis :", error);
+    return responseReturn(res, 500, { message: "Erreur serveur", error });
+  }
+};
+
+// Fonction utilitaire pour initialiser les statistiques d'évaluation
+const initializeRatingReview = () => [
+  { rating: 5, sum: 0 },
+  { rating: 4, sum: 0 },
+  { rating: 3, sum: 0 },
+  { rating: 2, sum: 0 },
+  { rating: 1, sum: 0 },
+];
+*/

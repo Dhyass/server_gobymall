@@ -33,7 +33,6 @@ export const get_seller_request = async (req, res) =>  {
     }
 };
 
-
 export const get_seller_by_id = async (req, res) => {
     const { id } = req.params;
     process.stdout.write("req.params: " + JSON.stringify(req.params) + "\n");
