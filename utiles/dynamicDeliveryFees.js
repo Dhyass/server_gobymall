@@ -55,7 +55,7 @@ import axios from "axios";
 
     // ✅ Étape 2: éviter localhost en dev
     if (!ip || ip === "::1" || ip === "127.0.0.1") {
-      console.warn("IP locale détectée, géolocalisation simulée");
+     // console.warn("IP locale détectée, géolocalisation simulée");
       return {
         country: "TG", // Exemple : Togo
         city: "Lomé",

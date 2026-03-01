@@ -9,26 +9,18 @@ import sendEmail from '../utiles/smtp_function.js';
 
 import { createToken } from '../utiles/tokenCreate.js';
 
-import { v2 as cloudinary } from 'cloudinary';
+
 import debug from "debug";
 import fs from "fs";
 import { console } from 'inspector';
 import mongoose from 'mongoose';
 import sellerCustomerModel from '../models/chats/sellerCustomerModel.js';
 import customerModel from '../models/customerModel.js';
+import cloudinary from '../utiles/cloudinary.js';
 import { responseReturn } from '../utiles/response.js';
 
 const log = debug("app:upload");
 
-
-
-// Configuration de Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true
-});
 
 
 export const admin_login = async (req, res) =>  {

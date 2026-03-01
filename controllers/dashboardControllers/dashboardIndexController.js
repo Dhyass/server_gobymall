@@ -53,6 +53,7 @@ export const get_seller_dashboard_data = async (req, res) => {
          ]
        }).countDocuments()
 
+/*
        const messages = await sellerCustomerMessageModel.find({
         $or:[
            {
@@ -66,25 +67,59 @@ export const get_seller_dashboard_data = async (req, res) => {
                 }
             }
         ]
-       }).limit(3)
+       }).sort({ createdAt: -1 }).limit(3)
+*/
+       const recentMessages = await sellerCustomerMessageModel.aggregate([
+  
+        // 1️⃣ On prend uniquement les messages NON LUS envoyés AU seller
+        {
+          $match: {
+            receiverId: id,
+            status: "unseen"
+          }
+        },
+
+        // 2️⃣ On trie par date DESC pour avoir le plus récent en premier
+        {
+          $sort: { createdAt: -1 }
+        },
+
+        // 3️⃣ On groupe par expéditeur (chaque client = une conversation)
+        {
+          $group: {
+            _id: "$senderId",
+            lastMessage: { $first: "$$ROOT" }
+          }
+        },
+
+        // 4️⃣ On retrie les conversations selon la date du dernier message
+        {
+          $sort: { "lastMessage.createdAt": -1 }
+        },
+
+        // 5️⃣ On limite à 3 conversations
+        {
+          $limit: 3
+        },
+
+        // 6️⃣ On reformate proprement
+        {
+          $replaceRoot: { newRoot: "$lastMessage" }
+        }
+
+      ])
 
        const recentOrders = await authOrderModel.find({
         sellerId: sellerObjectId
        }).sort({ createdAt: -1 }).limit(5)
-/*
-       console.log('totalSales', totalSales)
-       console.log('totalOrders', totalOrders)
-       console.log('totalProducts', totalProducts)
-       console.log('totalPendingOrders', totalPendingOrders)
-       console.log('messages', messages)
-       console.log('recentOrders', recentOrders)*/
+
 
        responseReturn(res, 200, {
         totalSales : totalSales.length >0 ? totalSales[0].totalAmount :0,
         totalOrders,
         totalProducts,
         totalPendingOrders,
-        recentMessages : messages,
+        recentMessages,
         recentOrders 
        });
     

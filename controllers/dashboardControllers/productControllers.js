@@ -1,17 +1,11 @@
-import { v2 as cloudinary } from 'cloudinary';
+
 import fs from 'fs';
 import mongoose from 'mongoose';
 import qs from 'qs';
-import productModel from '../../models/productModel.js';
-import { responseReturn } from '../../utiles/response.js';
 
-// Configuration de Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true
-});
+import productModel from '../../models/productModel.js';
+import cloudinary from '../../utiles/cloudinary.js';
+import { responseReturn } from '../../utiles/response.js';
 
 /*
 export const add_product = async (req, res) => {
@@ -310,6 +304,8 @@ export const add_product = async (req, res) => {
   try {
     const parsedBody = qs.parse(req.body);
 
+   // console.log("parse body", parsedBody)
+
     if (!req.user || !req.user.id) {
       return responseReturn(res, 401, { message: "Utilisateur non authentifié." });
     }
@@ -324,6 +320,7 @@ export const add_product = async (req, res) => {
       category,
       shopName,
       tags,
+      productCondition,
       deliveryType,
       deliveryFee,
       estimatedDeliveryTime,
@@ -332,7 +329,7 @@ export const add_product = async (req, res) => {
       variants,
     } = parsedBody;
 
-    if (!name || !price || !stock || !category || !shopName) {
+    if (!name || !price || !stock || !category || !shopName || !productCondition) {
       return responseReturn(res, 400, { message: "Champs obligatoires manquants." });
     }
 
@@ -445,6 +442,7 @@ export const add_product = async (req, res) => {
       stock: parseInt(stock),
       category: category.trim(),
       shopName: shopName.trim(),
+      productCondition,
       images,
       tags: normalizedTags,
       variants: normalizedVariants,
@@ -755,6 +753,7 @@ export const updateProduct = async (req, res) => {
       stock,
       category,
       shopName,
+      productCondition,
       tags,
       deliveryType,
       deliveryFee,
@@ -788,6 +787,7 @@ export const updateProduct = async (req, res) => {
     product.stock = stock !== undefined ? parseInt(stock) : product.stock;
     product.category = category || product.category;
     product.shopName = shopName || product.shopName;
+    product.productCondition = productCondition || product.productCondition;
     product.deliveryType = deliveryType || product.deliveryType;
     product.deliveryFee = deliveryFee !== undefined ? parseFloat(deliveryFee) : product.deliveryFee;
     product.estimatedDeliveryTime = estimatedDeliveryTime || product.estimatedDeliveryTime;

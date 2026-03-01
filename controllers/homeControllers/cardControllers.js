@@ -628,7 +628,7 @@ async function processCardProducts(cartProducts, commission, clientLocation) {
     const priceAfterDiscount = priceLive * (1 - (product.discount || 0) / 100);
     const finalPrice = priceAfterDiscount * (1 - commission / 100);
 
-   console.log('final price ', finalPrice);
+   //console.log('final price ', finalPrice);
 
     // Initialiser le groupe vendeur si pas encore fait
     if (!sellerMap.has(sellerId)) {

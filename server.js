@@ -16,11 +16,17 @@ import categoryRoutes from './routes/dashboardRoutes/categoryRoutes.js';
 import dashboardIndexRoutes from './routes/dashboardRoutes/dashboardIndexRoutes.js';
 import productRoutes from './routes/dashboardRoutes/productRoutes.js';
 import sellerRoutes from './routes/dashboardRoutes/sellerRoutes.js';
+import videoRoutes from './routes/dashboardRoutes/videoRoutes.js';
 import authHomeRoutes from './routes/homeRoutes/authHomeRoutes.js';
 import cardRoutes from './routes/homeRoutes/cardRoutes.js';
 import homeRoutes from './routes/homeRoutes/homeRoutes.js';
 import orderRoutes from './routes/ordersRouters/orderRoutes.js';
 import paymentRoutes from './routes/paymentRoutes/paymentRoutes.js';
+import subscriptionRoutes from './routes/subscriptionRoutes/subscriptionRoutes.js';
+
+//////importer cron job d'abonnement 
+
+import subscriptionExpirationJob from "./cron/subscriptionExpiration.cron.js";
 
 const app = express();
 const appServer = http.createServer(app);
@@ -234,6 +240,11 @@ app.use('/api', paymentRoutes);
 app.use('/api', dashboardIndexRoutes)
 app.use('/api', bannerRoutes);
 app.use('/api', contactMessageRoutes);
+app.use('/api', subscriptionRoutes)
+app.use('/api', videoRoutes)
+
+
+subscriptionExpirationJob();
 
 // Route d'accueil
 app.get('/', (req, res) => res.send(

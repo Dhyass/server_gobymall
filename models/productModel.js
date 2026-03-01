@@ -14,6 +14,12 @@ const productSchema = new Schema({
     category: { type: String, required: true },
     shopName: { type: String, required: true },
 
+    productCondition: { 
+         type: String,
+         enum: ['new','second_hand'], 
+         required: true 
+    },
+
     images: [
         {
             url: { type: String, required: true },
@@ -34,10 +40,12 @@ const productSchema = new Schema({
         enum: ['free', 'negotiable', 'fixed', 'dynamic'],
         required: true
     },
+
     deliveryFee: {
         type: Number, // Applicable si deliveryType === 'fixe_par_produit'
         default: 0
     },
+
     estimatedDeliveryTime: {
         type: String, // Exemple : "2-5 jours", "48h", etc.
         required: true
@@ -87,5 +95,102 @@ productSchema.index(
     }
 );
 
+const productModel = model('Product', productSchema);
+export default productModel;
+
+
+//////////////////////////////////////////////////////////////
+
+/*
+
+import { Schema, model, mongoose } from 'mongoose';
+
+const productSchema = new Schema({
+    sellerId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+    name: { type: String, required: true },
+    slug: { type: String, required: true },
+    description: { type: String, required: true },
+    discount: { type: Number, default: 0 },
+    price: { type: Number, required: true },
+    brand: { type: String },
+    stock: { type: Number, required: true },
+    category: { type: String, required: true },
+    shopName: { type: String, required: true },
+
+    images: [
+        {
+            url: { type: String, required: true },
+            public_id: { type: String, required: true }
+        }
+    ],
+
+    rating: { type: Number, default: 0 },
+
+    tags: {
+        type: [String],
+        default: []
+    },
+
+    // 👇 LIVRAISON 
+    deliveryType: {
+        type: String,
+        enum: ['free', 'negotiable', 'fixed', 'dynamic'],
+        required: true
+    },
+    deliveryFee: {
+        type: Number, // Applicable si deliveryType === 'fixe_par_produit'
+        default: 0
+    },
+    estimatedDeliveryTime: {
+        type: String, // Exemple : "2-5 jours", "48h", etc.
+        required: true
+    },
+
+    // 👇 VARIANTES 
+   variants: [
+        {
+            _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+            color: { type: String },
+            size: { type: String },
+            variantPrice: { type: Number, default: 0 },
+            variantStock: { type: Number, default: 0 },
+            variantImage: {
+                url: { type: String },
+                public_id: { type: String },
+            _id: { type: mongoose.Schema.Types.ObjectId, auto: true }
+            }
+        }
+     ]
+     ,
+
+    // 👇 POIDS ET DIMENSIONS POUR CALCUL AUTOMATIQUE 
+    weight: { type: Number }, // en kg ou grammes selon ton système
+    dimensions: {
+        length: { type: Number }, // en cm
+        width: { type: Number },
+        height: { type: Number }
+    },
+
+}, { timestamps: true });
+
+productSchema.index(
+    {
+        name: 'text',
+        description: 'text',
+        brand: 'text',
+        category: 'text'
+    },
+    {
+        weights: {
+            name: 5,
+            description: 3,
+            brand: 2,
+            category: 1
+        }
+    }
+);
+
 const Product = model('Product', productSchema);
 export default Product;
+
+*/

@@ -7,6 +7,7 @@ import cardModel from "../../models/cardModel.js";
 import customerOrderModel from "../../models/customerOrderModel.js";
 import myShopWalletSchemaModel from "../../models/myShopWalletModel.js";
 import productModel from "../../models/productModel.js";
+import sellerModel from "../../models/sellerModel.js";
 import sellerWalletModel from "../../models/sellerWalletModel.js";
 import { responseReturn } from "../../utiles/response.js";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // la clé depuis l'environnement.
@@ -398,7 +399,7 @@ export const get_dashboard_data = async (req, res) => {
        return responseReturn (res, 500, { message: "Error fetching order" });
     }
 }
-
+/*
 export const get_order_by_id = async (req, res) => {
     const {orderId} = req.params;
     //console.log('get order by id is running :>> req params :', req.params);
@@ -419,6 +420,101 @@ export const get_order_by_id = async (req, res) => {
        return responseReturn(res, 500, { message: "Error fetching order" });
     }
 }
+*/
+
+export const get_order_by_id = async (req, res) => {
+    const { orderId } = req.params;
+
+    try {
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return responseReturn(res, 400, { message: "ID invalide" });
+        }
+
+        const order = await customerOrderModel.findById(orderId).lean();
+
+        if (!order) {
+            return responseReturn(res, 404, { message: "Order not found" });
+        }
+
+        // 🔹 Regrouper les produits par sellerId
+        const sellerMap = {};
+
+        order.products.forEach(product => {
+            const sellerId = product.sellerId.toString();
+
+            if (!sellerMap[sellerId]) {
+                sellerMap[sellerId] = [];
+            }
+
+            sellerMap[sellerId].push(product);
+        });
+
+        const sellerIds = Object.keys(sellerMap);
+
+        // 🔹 Récupérer les vendeurs (email + shopInfo uniquement)
+        const sellers = await sellerModel.find(
+            { _id: { $in: sellerIds } },
+            { email: 1, shopInfo: 1 } // projection
+        );
+/*
+        // 🔹 Construire la réponse
+        const sellersGrouped = sellers.map(seller => ({
+            sellerId: seller._id,
+            email: seller.email,
+            shopInfo: seller.shopInfo,
+            products: sellerMap[seller._id.toString()]
+        }));
+*/
+
+        const sellersGrouped = sellers.map(seller => {
+    
+            const sellerProducts = sellerMap[seller._id.toString()];
+
+            // 🔥 Calcul total vendeur
+            const sellerTotal = sellerProducts.reduce((acc, product) => {
+                const variant = product.selectedVariant;
+                const basePrice = variant
+                    ? variant.variantPrice
+                    : product.price;
+
+                const finalPrice = basePrice * (1 - (product.discount || 0) / 100);
+
+                return acc + finalPrice * product.quantity;
+            }, 0);
+
+            return {
+                sellerId: seller._id,
+                email: seller.email,
+                shopInfo: seller.shopInfo,
+                sellerTotal,
+                products: sellerProducts
+            };
+        });
+        //console.log("sellers  grouped", sellersGrouped)
+
+        const finalOrder= {
+            orderId: order._id,
+            price: order.price,
+            date: order.date,
+            shippingInfo: order.shippingInfo,
+            quantity: order.quantity,
+            payment_status: order.payment_status,
+            delivery_status: order.delivery_status,
+            sellers: sellersGrouped
+        }
+
+       // console.log("final order", finalOrder)
+
+        return responseReturn(res, 200, {
+            message: "Order found",
+            finalOrder
+        });
+
+    } catch (error) {
+        console.log("error :>> ", error);
+        return responseReturn(res, 500, { message: "Error fetching order" });
+    }
+};
 
 /*
 export const get_admin_orders = async(req,res)=>{

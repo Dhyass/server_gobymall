@@ -106,7 +106,7 @@ export const get_active_sellers = async (req, res) => {
             }).skip(skipPage).limit(parPage).sort({createdAt:-1});
            // console.log(' sellers ', sellers)
             const total_active_sellers = await sellerModel.countDocuments({ status: status, $text : { $search: searchValue }});
-            console.log(' total_active_sellers ', total_active_sellers)
+            //console.log(' total_active_sellers ', total_active_sellers)
             return responseReturn(res, 200, { sellers, total_active_sellers });
         }else {
             const sellers = await sellerModel.find({status: status}).skip(skipPage).limit(parPage).sort({createdAt:-1});

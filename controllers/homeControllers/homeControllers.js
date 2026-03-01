@@ -2,6 +2,7 @@ import moment from "moment";
 import mongoose from "mongoose";
 import categoryModel from "../../models/categoryModel.js";
 import productModel from "../../models/productModel.js";
+import ProductVideoModel from "../../models/productVideoModel.js";
 import reviewModel from "../../models/reviewsModel.js";
 import sellerModel from "../../models/sellerModel.js";
 import { calculateDynamicShipping, getClientLocationFromIP } from "../../utiles/dynamicDeliveryFees.js";
@@ -41,7 +42,7 @@ export const get_home_Category = async (req, res) => {
 export const get_home_product = async (req, res) => {
     try {
         // Get products sorted by creation date
-        const products = await productModel.find({}).limit(16).sort({ createdAt: -1 });
+        const products = await productModel.find({}).limit(30).sort({ createdAt: -1 });
 
         // Get the latest 9 products and format them
         const allProducts = await productModel.find({}).limit(9).sort({ createdAt: -1 });
@@ -155,20 +156,33 @@ export const get_query_sort_products = async (req, res) => {
     }
 };
 
+
 export const get_product = async (req, res) => {
     const { productId } = req.params;
-   // console.log("productId contenu brut:", productId);
+  // console.log("productId contenu brut:", productId);
     
     try {
         if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             // console.log("ID utilisateur invalide :", id);
             return responseReturn(res, 400, { message: "ID invalide" });
         }
+
     const productIdObjectId = mongoose.Types.ObjectId.createFromHexString(productId);
     const product = await productModel.findById(productIdObjectId);
     if (!product) {
         return responseReturn(res, 404, { message: "Produit non trouvé" });
     }
+
+
+    const video = await ProductVideoModel.findOne({productId});
+
+    /*
+     if (!video) {
+      return responseReturn(res, 404, { message: "Aucune vidéo trouvée pour ce produit" });
+    }
+    */
+
+   /// console.log(" video", video)
 
         const relatedProducts = await productModel.find({
             $and: [{
@@ -210,7 +224,7 @@ export const get_product = async (req, res) => {
 
            const seller = await sellerModel.findById(product.sellerId);
            const sellerLocation = seller.shopInfo
-           //console.log('seller ', seller)
+            //console.log('seller ', seller)
             // console.log('seller location ', sellerLocation)
 
             const deliveryType = product.deliveryType; // free, fixed, negotiable, dynamic
@@ -233,7 +247,7 @@ export const get_product = async (req, res) => {
                 product,
                 quantity
                 );
-                console.log('shipping fees', shippingFee);
+               // console.log('shipping fees', shippingFee);
                 } else if (deliveryType === "dynamic" && !clientLocation) {
                 shippingFee = "unknown"; // ou fallback à un tarif par défaut
                 console.warn("Localisation client indisponible, frais dynamique impossible");
@@ -241,7 +255,7 @@ export const get_product = async (req, res) => {
 
 
     //console.log("product:", product);
-  return  responseReturn(res, 200,{ message: "Produit trouvé" , product, moreProducts, relatedProducts, shippingFee, clientLocation});
+  return  responseReturn(res, 200,{ message: "Produit trouvé" , product, moreProducts, relatedProducts, shippingFee, clientLocation, seller, video});
     
 } catch (error) {
     console.error("Error fetching product:", error);
